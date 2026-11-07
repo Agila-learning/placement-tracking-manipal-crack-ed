@@ -117,57 +117,59 @@ export const UsersPage = () => {
           action={<Button onClick={openCreate} leftIcon={<Plus className="w-4 h-4" />}>Add First User</Button>} />
       ) : (
         <div className="bg-white rounded-xl border border-fic-border overflow-hidden">
-          <table className="min-w-full">
-            <thead>
-              <tr>
-                {['Employee ID', 'Name', 'Email', 'Phone', 'Role', 'Status', 'Last Login', 'Actions'].map(h => (
-                  <th key={h} className="fic-table-header">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {users.map(u => {
-                const uId = u.id || (u as any)._id;
-                const isSelf = uId === (currentUser?.id || (currentUser as any)?._id);
-                return (
-                  <tr key={uId} className={`hover:bg-slate-50 ${isSelf ? 'bg-blue-50/40' : ''}`}>
-                    <td className="fic-table-cell font-mono text-xs text-fic-navy">{u.employeeId}</td>
-                    <td className="fic-table-cell font-medium text-slate-800">
-                      {u.name} {isSelf && <span className="text-xs text-blue-500 font-normal ml-1">(you)</span>}
-                    </td>
-                    <td className="fic-table-cell text-slate-500 text-xs">{u.email}</td>
-                    <td className="fic-table-cell text-slate-500 text-xs">{u.phone || '-'}</td>
-                    <td className="fic-table-cell">
-                      <Badge className={roleBadge[u.role]}>{u.role.replace('_', ' ')}</Badge>
-                    </td>
-                    <td className="fic-table-cell">
-                      <Badge className={u.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}>{u.status}</Badge>
-                    </td>
-                    <td className="fic-table-cell text-xs text-slate-400">
-                      {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString('en-IN') : 'Never'}
-                    </td>
-                    <td className="fic-table-cell">
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="ghost" leftIcon={<Edit2 className="w-3.5 h-3.5" />} onClick={() => openEdit(u)}>Edit</Button>
-                        {!isSelf && (
-                          <Button size="sm" variant="ghost" onClick={() => setConfirmToggle(u)}
-                            leftIcon={u.status === 'ACTIVE' ? <ToggleRight className="w-3.5 h-3.5 text-green-600" /> : <ToggleLeft className="w-3.5 h-3.5" />}>
-                            {u.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr>
+                  {['Employee ID', 'Name', 'Email', 'Phone', 'Role', 'Status', 'Last Login', 'Actions'].map(h => (
+                    <th key={h} className="fic-table-header">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {users.map(u => {
+                  const uId = u.id || (u as any)._id;
+                  const isSelf = uId === (currentUser?.id || (currentUser as any)?._id);
+                  return (
+                    <tr key={uId} className={`hover:bg-slate-50 ${isSelf ? 'bg-blue-50/40' : ''}`}>
+                      <td className="fic-table-cell font-mono text-xs text-fic-navy">{u.employeeId}</td>
+                      <td className="fic-table-cell font-medium text-slate-800">
+                        {u.name} {isSelf && <span className="text-xs text-blue-500 font-normal ml-1">(you)</span>}
+                      </td>
+                      <td className="fic-table-cell text-slate-500 text-xs">{u.email}</td>
+                      <td className="fic-table-cell text-slate-500 text-xs">{u.phone || '-'}</td>
+                      <td className="fic-table-cell">
+                        <Badge className={roleBadge[u.role]}>{u.role.replace('_', ' ')}</Badge>
+                      </td>
+                      <td className="fic-table-cell">
+                        <Badge className={u.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}>{u.status}</Badge>
+                      </td>
+                      <td className="fic-table-cell text-xs text-slate-400">
+                        {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString('en-IN') : 'Never'}
+                      </td>
+                      <td className="fic-table-cell">
+                        <div className="flex gap-2">
+                          <Button size="sm" variant="ghost" leftIcon={<Edit2 className="w-3.5 h-3.5" />} onClick={() => openEdit(u)}>Edit</Button>
+                          {!isSelf && (
+                            <Button size="sm" variant="ghost" onClick={() => setConfirmToggle(u)}
+                              leftIcon={u.status === 'ACTIVE' ? <ToggleRight className="w-3.5 h-3.5 text-green-600" /> : <ToggleLeft className="w-3.5 h-3.5" />}>
+                              {u.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+                            </Button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editing ? 'Edit User Account' : 'Create User Account'}>
         <form onSubmit={handleSave} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label="Employee ID *" value={form.employeeId} onChange={e => setForm(f => ({ ...f, employeeId: e.target.value.toUpperCase() }))}
               placeholder="e.g. FIC-HR-001" required disabled={!!editing} />
             <Input label="Full Name *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Employee name" required />

@@ -62,13 +62,13 @@ export const ReportsPage = () => {
       />
 
       {/* Report Type Tabs */}
-      <div className="bg-white rounded-xl border border-fic-border p-1 flex gap-1 w-fit">
+      <div className="bg-white rounded-xl border border-fic-border p-1 flex flex-wrap gap-1 w-full sm:w-fit">
         {[
           { id: 'interview' as const, label: 'Interview Status Report', icon: <BarChart2 className="w-4 h-4" /> },
           { id: 'enrollment' as const, label: 'Enrollment Fee Report', icon: <FileText className="w-4 h-4" /> },
         ].map(tab => (
           <button key={tab.id} onClick={() => { setActiveReport(tab.id); setData([]); setHasLoaded(false); }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeReport === tab.id ? 'bg-fic-navy text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
+            className={`flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors flex-1 sm:flex-initial ${activeReport === tab.id ? 'bg-fic-navy text-white' : 'text-slate-600 hover:bg-slate-50'}`}>
             {tab.icon} {tab.label}
           </button>
         ))}
@@ -76,7 +76,7 @@ export const ReportsPage = () => {
 
       {/* Filters */}
       <div className="bg-white rounded-xl border border-fic-border p-4">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           <input className="fic-input text-sm h-9" placeholder="Bank" value={filters.bank} onChange={e => setFilter('bank', e.target.value)} />
           <input className="fic-input text-sm h-9" placeholder="Program" value={filters.program} onChange={e => setFilter('program', e.target.value)} />
           <input className="fic-input text-sm h-9" placeholder="Vendor" value={filters.vendor} onChange={e => setFilter('vendor', e.target.value)} />

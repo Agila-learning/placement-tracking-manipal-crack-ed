@@ -128,49 +128,51 @@ export const ProgramsPage = () => {
           action={<Button onClick={openCreate} leftIcon={<Plus className="w-4 h-4" />}>Add First Program</Button>} />
       ) : (
         <div className="bg-white rounded-xl border border-fic-border overflow-hidden">
-          <table className="min-w-full">
-            <thead>
-              <tr>
-                {['Program Name', 'Bank', 'Code', 'Designation', 'Fee (₹)', 'Rounds', 'Status', 'Actions'].map(h => (
-                  <th key={h} className="fic-table-header">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(p => (
-                <tr key={p._id} className="hover:bg-slate-50">
-                  <td className="fic-table-cell font-medium text-slate-800">{p.name}</td>
-                  <td className="fic-table-cell text-slate-600">{p.bankName}</td>
-                  <td className="fic-table-cell"><span className="font-mono text-xs bg-blue-50 text-fic-navy px-2 py-0.5 rounded">{p.code}</span></td>
-                  <td className="fic-table-cell text-slate-500 text-xs">{p.designation || '-'}</td>
-                  <td className="fic-table-cell font-medium text-slate-700">₹{p.enrollmentFeeAmount?.toLocaleString('en-IN')}</td>
-                  <td className="fic-table-cell">
-                    <span className="text-xs bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full">
-                      {p.interviewRoundsConfig?.length || 0} rounds
-                    </span>
-                  </td>
-                  <td className="fic-table-cell">
-                    <Badge className={p.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}>{p.status}</Badge>
-                  </td>
-                  <td className="fic-table-cell">
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="ghost" leftIcon={<Edit2 className="w-3.5 h-3.5" />} onClick={() => openEdit(p)}>Edit</Button>
-                      <Button size="sm" variant="ghost" onClick={() => setConfirmToggle(p)}
-                        leftIcon={p.status === 'ACTIVE' ? <ToggleRight className="w-3.5 h-3.5 text-green-600" /> : <ToggleLeft className="w-3.5 h-3.5" />}>
-                        {p.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
-                      </Button>
-                    </div>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr>
+                  {['Program Name', 'Bank', 'Code', 'Designation', 'Fee (₹)', 'Rounds', 'Status', 'Actions'].map(h => (
+                    <th key={h} className="fic-table-header">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtered.map(p => (
+                  <tr key={p._id} className="hover:bg-slate-50">
+                    <td className="fic-table-cell font-medium text-slate-800">{p.name}</td>
+                    <td className="fic-table-cell text-slate-600">{p.bankName}</td>
+                    <td className="fic-table-cell"><span className="font-mono text-xs bg-blue-50 text-fic-navy px-2 py-0.5 rounded">{p.code}</span></td>
+                    <td className="fic-table-cell text-slate-500 text-xs">{p.designation || '-'}</td>
+                    <td className="fic-table-cell font-medium text-slate-700">₹{p.enrollmentFeeAmount?.toLocaleString('en-IN')}</td>
+                    <td className="fic-table-cell">
+                      <span className="text-xs bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full">
+                        {p.interviewRoundsConfig?.length || 0} rounds
+                      </span>
+                    </td>
+                    <td className="fic-table-cell">
+                      <Badge className={p.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}>{p.status}</Badge>
+                    </td>
+                    <td className="fic-table-cell">
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="ghost" leftIcon={<Edit2 className="w-3.5 h-3.5" />} onClick={() => openEdit(p)}>Edit</Button>
+                        <Button size="sm" variant="ghost" onClick={() => setConfirmToggle(p)}
+                          leftIcon={p.status === 'ACTIVE' ? <ToggleRight className="w-3.5 h-3.5 text-green-600" /> : <ToggleLeft className="w-3.5 h-3.5" />}>
+                          {p.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editing ? 'Edit Program' : 'Add Program'} size="2xl">
         <form onSubmit={handleSave} className="space-y-5">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Select label="Bank *" options={banks.map(b => ({ value: b._id, label: b.name }))} value={form.bankId}
               onChange={e => setForm((f: any) => ({ ...f, bankId: e.target.value }))} placeholder="Select Bank" required />
             <Input label="Program Name *" value={form.name} onChange={e => setForm((f: any) => ({ ...f, name: e.target.value }))} placeholder="e.g. HDFC Life Advisor" required />

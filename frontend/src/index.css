@@ -146,3 +146,14 @@
   background: #0F2744;
 }
 
+/* Unfreeze columns on mobile screens (< 768px) so table scrolls naturally on touch */
+@media (max-width: 768px) {
+  .sticky-col-1,
+  .sticky-col-2,
+  .sticky-header-1,
+  .sticky-header-2 {
+    position: static !important;
+    left: auto !important;
+  }
+}
+

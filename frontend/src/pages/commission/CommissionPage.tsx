@@ -777,20 +777,22 @@ export const CommissionPage = () => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
                 <Button
                   size="sm"
                   variant="secondary"
                   leftIcon={showEditorControls ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                   onClick={() => setShowEditorControls(!showEditorControls)}
+                  className="flex-1 sm:flex-initial"
                 >
-                  {showEditorControls ? 'Hide Field Editor' : 'Edit Batch / Fields'}
+                  {showEditorControls ? 'Hide Controls' : 'Edit Batch / Fields'}
                 </Button>
                 <Button
                   size="sm"
                   variant="secondary"
                   leftIcon={<Download className="w-3.5 h-3.5" />}
                   onClick={handleDownloadInvoiceHtml}
+                  className="flex-1 sm:flex-initial"
                 >
                   Download File
                 </Button>
@@ -798,7 +800,7 @@ export const CommissionPage = () => {
                   size="sm"
                   leftIcon={<Printer className="w-4 h-4" />}
                   onClick={handlePrint}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs flex-1 sm:flex-initial"
                 >
                   Print / Save PDF
                 </Button>
@@ -1022,15 +1024,19 @@ export const CommissionPage = () => {
           {/* ============================================================== */}
           {/* PIXEL-PERFECT INVOICE SHEET (MATCHING REFERENCE IMAGE EXACTLY) */}
           {/* ============================================================== */}
-          <div
-            id="printable-invoice"
-            className="bg-white text-black p-8 sm:p-10 shadow-2xl mx-auto max-w-[850px] font-sans text-[12px] leading-tight"
-            style={{
-              border: '2px solid black',
-              color: '#000000',
-              backgroundColor: '#ffffff',
-            }}
-          >
+          <div className="w-full overflow-x-auto pb-4 scrollbar-thin">
+            <div className="sm:hidden text-center text-[11px] text-slate-500 py-1 bg-slate-100 rounded-lg mb-2">
+              👈 Swipe horizontally to view / edit full Tax Invoice 👉
+            </div>
+            <div
+              id="printable-invoice"
+              className="bg-white text-black p-5 sm:p-8 md:p-10 shadow-2xl mx-auto min-w-[720px] max-w-[850px] font-sans text-[12px] leading-tight"
+              style={{
+                border: '2px solid black',
+                color: '#000000',
+                backgroundColor: '#ffffff',
+              }}
+            >
             {/* 1. Centered Main Header */}
             <div className="text-center mb-6">
               <div className="font-extrabold text-base sm:text-lg tracking-wide uppercase">
@@ -1431,27 +1437,29 @@ export const CommissionPage = () => {
               </div>
             </div>
           </div>
+          </div>
 
           {/* Bottom Actions */}
           <div className="flex flex-wrap justify-between items-center gap-3 pt-2 no-print border-t border-slate-200">
             <span className="text-xs text-slate-500">
               Formatted per Indian GST audit standards. Click "Print / Save PDF" to save.
             </span>
-            <div className="flex items-center gap-2">
-              <Button variant="secondary" onClick={() => setShowInvoiceModal(false)}>
+            <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+              <Button variant="secondary" onClick={() => setShowInvoiceModal(false)} className="flex-1 sm:flex-initial">
                 Close
               </Button>
               <Button
                 variant="secondary"
                 leftIcon={<Download className="w-3.5 h-3.5" />}
                 onClick={handleDownloadInvoiceHtml}
+                className="flex-1 sm:flex-initial"
               >
                 Download HTML
               </Button>
               <Button
                 leftIcon={<Printer className="w-4 h-4" />}
                 onClick={handlePrint}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs flex-1 sm:flex-initial"
               >
                 Print / Save PDF
               </Button>

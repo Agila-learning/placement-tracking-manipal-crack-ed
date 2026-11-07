@@ -182,9 +182,9 @@ export const CandidatesPage = () => {
       </div>
 
       {/* Filter Bar */}
-      <div className="bg-white rounded-xl border border-fic-border p-4 space-y-3">
-        <div className="flex gap-2 flex-wrap">
-          <div className="relative flex-1 min-w-48 flex gap-2">
+      <div className="bg-white rounded-xl border border-fic-border p-3.5 sm:p-4 space-y-3">
+        <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+          <div className="relative flex-1 min-w-0 sm:min-w-48 flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
@@ -199,51 +199,53 @@ export const CandidatesPage = () => {
               Search
             </Button>
           </div>
-          <select
-            className="fic-input w-auto h-9 text-sm font-medium"
-            value={filterStatus}
-            onChange={(e) => {
-              setFilterStatus(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="">All Statuses</option>
-            <optgroup label="📋 Phase 1: Registration & Sourcing">
-              <option value="Registered">Registered</option>
-              <option value="Documents Pending">Documents Pending</option>
-              <option value="Referred">Referred</option>
-            </optgroup>
-            <optgroup label="🎤 Phase 2: Interview Process">
-              <option value="Awaiting Interview">Awaiting Interview</option>
-              <option value="Interview in Progress">Interview in Progress</option>
-            </optgroup>
-            <optgroup label="🏆 Phase 3: Selection & Campus Onboarding">
-              <option value="Selected">Selected (Bank Cleared)</option>
-              <option value="Enrollment Fee Pending">Enrollment Fee Pending</option>
-              <option value="Loan Processing">Loan Processing</option>
-              <option value="Campus Reporting Pending">Campus Reporting Pending</option>
-              <option value="Arrived in Campus">Arrived in Campus</option>
-            </optgroup>
-            <optgroup label="⏸️ Phase 4: Exceptions & Holds">
-              <option value="On Hold">⏸️ On Hold (Action Required)</option>
-              <option value="Rejected">❌ Rejected</option>
-              <option value="Dropped">⚠️ Dropped</option>
-              <option value="Not Interested">🚫 Not Interested</option>
-            </optgroup>
-          </select>
-          <Button variant="secondary" size="sm" leftIcon={<Filter className="w-3.5 h-3.5" />}
-            onClick={() => setShowFilters(!showFilters)}>
-            {showFilters ? 'Hide' : 'More'} Filters
-          </Button>
-          {(search || filterBank || filterProgram || filterVendor || filterHR || filterStatus || fromDate || toDate) && (
-            <Button variant="ghost" size="sm" onClick={clearFilters}>
-              Clear All
+          <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+            <select
+              className="fic-input flex-1 sm:flex-initial sm:w-auto h-9 text-sm font-medium"
+              value={filterStatus}
+              onChange={(e) => {
+                setFilterStatus(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All Statuses</option>
+              <optgroup label="📋 Phase 1: Registration & Sourcing">
+                <option value="Registered">Registered</option>
+                <option value="Documents Pending">Documents Pending</option>
+                <option value="Referred">Referred</option>
+              </optgroup>
+              <optgroup label="🎤 Phase 2: Interview Process">
+                <option value="Awaiting Interview">Awaiting Interview</option>
+                <option value="Interview in Progress">Interview in Progress</option>
+              </optgroup>
+              <optgroup label="🏆 Phase 3: Selection & Campus Onboarding">
+                <option value="Selected">Selected (Bank Cleared)</option>
+                <option value="Enrollment Fee Pending">Enrollment Fee Pending</option>
+                <option value="Loan Processing">Loan Processing</option>
+                <option value="Campus Reporting Pending">Campus Reporting Pending</option>
+                <option value="Arrived in Campus">Arrived in Campus</option>
+              </optgroup>
+              <optgroup label="⏸️ Phase 4: Exceptions & Holds">
+                <option value="On Hold">⏸️ On Hold (Action Required)</option>
+                <option value="Rejected">❌ Rejected</option>
+                <option value="Dropped">⚠️ Dropped</option>
+                <option value="Not Interested">🚫 Not Interested</option>
+              </optgroup>
+            </select>
+            <Button variant="secondary" size="sm" leftIcon={<Filter className="w-3.5 h-3.5" />}
+              onClick={() => setShowFilters(!showFilters)}>
+              {showFilters ? 'Hide' : 'More'} Filters
             </Button>
-          )}
+            {(search || filterBank || filterProgram || filterVendor || filterHR || filterStatus || fromDate || toDate) && (
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                Clear
+              </Button>
+            )}
+          </div>
         </div>
 
         {showFilters && (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 pt-2 border-t border-slate-100">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 pt-2 border-t border-slate-100">
             <select className="fic-input text-sm h-9" value={filterBank} onChange={(e) => setFilterBank(e.target.value)}>
               <option value="">All Banks</option>
               {banks.map((b) => <option key={b._id} value={b.name}>{b.name}</option>)}
@@ -292,6 +294,9 @@ export const CandidatesPage = () => {
           />
         ) : (
           <div className="overflow-x-auto">
+            <div className="sm:hidden text-center text-[11px] text-slate-500 py-1 bg-slate-50 border-b border-slate-100">
+              👈 Swipe horizontally to view all stages & actions 👉
+            </div>
             <table className="min-w-full">
               <thead>
                 <tr>
@@ -446,7 +451,7 @@ export const CandidatesPage = () => {
 
         {/* Pagination */}
         {!isLoading && totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-slate-100">
             <span className="text-xs text-slate-500">
               Showing {((page - 1) * 50) + 1}–{Math.min(page * 50, total)} of {total}
             </span>

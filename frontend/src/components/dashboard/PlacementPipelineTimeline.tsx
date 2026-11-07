@@ -242,6 +242,9 @@ export const PlacementPipelineTimeline: React.FC<PlacementPipelineTimelineProps>
 
       {/* Progress Timeline Track */}
       <div className="relative pt-4 pb-2">
+        <div className="sm:hidden text-right text-[11px] text-slate-400 mb-2 font-medium">
+          👉 Swipe across all 5 stages
+        </div>
         {/* Background Connector Line */}
         <div className="absolute top-9 left-6 right-6 h-1.5 bg-slate-100 rounded-full hidden md:block" />
 
@@ -253,8 +256,8 @@ export const PlacementPipelineTimeline: React.FC<PlacementPipelineTimelineProps>
           className="absolute top-9 left-6 h-1.5 bg-gradient-to-r from-blue-600 via-emerald-500 to-fic-yellow rounded-full hidden md:block shadow-xs"
         />
 
-        {/* Stages Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 relative z-10">
+        {/* Stages Carousel/Grid */}
+        <div className="flex sm:grid sm:grid-cols-3 lg:grid-cols-5 overflow-x-auto sm:overflow-visible pb-3 sm:pb-0 gap-3 sm:gap-4 relative z-10 scrollbar-none snap-x">
           {stages.map((stage, idx) => (
             <motion.div
               key={stage.id}
@@ -262,7 +265,7 @@ export const PlacementPipelineTimeline: React.FC<PlacementPipelineTimelineProps>
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.1, duration: 0.4 }}
               onClick={() => setSelectedStage(stage)}
-              className="flex flex-col items-center text-center p-3 rounded-xl hover:bg-blue-50/60 cursor-pointer border border-transparent hover:border-blue-200 hover:shadow-md transition-all group select-none"
+              className="flex flex-col items-center text-center p-3 rounded-xl hover:bg-blue-50/60 cursor-pointer border border-slate-200/60 sm:border-transparent hover:border-blue-200 hover:shadow-md transition-all group select-none min-w-[140px] sm:min-w-0 flex-1 snap-start bg-slate-50/50 sm:bg-transparent"
               title="Click to view candidate contacts"
             >
               {/* Milestone Icon Node */}

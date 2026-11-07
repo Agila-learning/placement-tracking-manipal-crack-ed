@@ -371,14 +371,14 @@ export const CandidateDetailPage = () => {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/candidates')} className="text-slate-400 hover:text-fic-navy p-2 rounded-lg hover:bg-slate-100">
+          <button onClick={() => navigate('/candidates')} className="text-slate-400 hover:text-fic-navy p-2 rounded-lg hover:bg-slate-100 flex-shrink-0">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-fic-navy">{a.candidateName}</h1>
-            <div className="flex items-center gap-3 mt-1 flex-wrap">
+            <h1 className="text-lg sm:text-xl font-bold text-fic-navy leading-tight">{a.candidateName}</h1>
+            <div className="flex items-center gap-2 sm:gap-3 mt-1 flex-wrap">
               <span className="font-mono text-xs bg-blue-50 text-fic-navy px-2 py-0.5 rounded">
                 {a.applicationNumber}
               </span>
@@ -388,19 +388,21 @@ export const CandidateDetailPage = () => {
           </div>
         </div>
         {hasRole('SUPER_ADMIN', 'ADMIN', 'HR_EXECUTIVE') && (
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
             <Button
               size="sm"
               variant="secondary"
               leftIcon={<Edit2 className="w-3.5 h-3.5" />}
               onClick={openEditDetailsModal}
+              className="flex-1 sm:flex-initial justify-center"
             >
-              Edit Candidate Details
+              Edit Details
             </Button>
             <Button
               size="sm"
               leftIcon={<Edit2 className="w-3.5 h-3.5" />}
               onClick={() => { setNewStatus(a.overallStatus); setShowStatusModal(true); }}
+              className="flex-1 sm:flex-initial justify-center"
             >
               Update Status
             </Button>
@@ -409,7 +411,7 @@ export const CandidateDetailPage = () => {
       </div>
 
       {/* Quick Info Bar */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3">
         {[
           { label: 'Bank', value: a.bankName },
           { label: 'Program', value: a.programName },
@@ -456,7 +458,7 @@ export const CandidateDetailPage = () => {
       <div className="bg-white rounded-xl border border-fic-border overflow-hidden">
         <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
 
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {/* TAB 1: Details */}
           {activeTab === 'details' && (
             <div className="grid md:grid-cols-2 gap-6">
@@ -643,17 +645,17 @@ export const CandidateDetailPage = () => {
                       <h4 className="text-sm font-semibold text-slate-700 mb-2">Transaction History</h4>
                       <div className="space-y-2">
                         {a.payment.transactions.map((txn) => (
-                          <div key={txn._id} className="flex items-center justify-between p-3 border border-fic-border rounded-lg text-xs">
+                          <div key={txn._id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 border border-fic-border rounded-lg text-xs gap-2">
                             <div>
                               <span className="font-mono font-medium text-fic-navy">{txn.transactionId}</span>
                               <span className="text-slate-400 ml-2">{txn.paymentMode}</span>
                             </div>
-                            <div className="text-right">
+                            <div className="flex sm:flex-col items-center sm:items-end justify-between gap-1">
                               <div className="font-bold text-green-600">{formatCurrency(txn.amount)}</div>
-                              <div className="text-slate-400">{formatDate(txn.paymentDate)}</div>
+                              <div className="text-slate-400 text-[11px]">{formatDate(txn.paymentDate)}</div>
                             </div>
                             {txn.isVerified ? (
-                              <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs flex items-center gap-1">
+                              <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs flex items-center gap-1 w-fit">
                                 <CheckCircle className="w-3 h-3" /> Verified
                               </span>
                             ) : (

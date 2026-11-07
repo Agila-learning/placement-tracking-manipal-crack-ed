@@ -115,8 +115,8 @@ export const CorporateHeroBanner: React.FC<CorporateHeroBannerProps> = ({
       </div>
 
       {/* ── Top-Right Date Pill ── */}
-      <div className="absolute top-4 right-5 md:top-5 md:right-7 z-20">
-        <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/95 bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/20 shadow-xs">
+      <div className="relative pt-3.5 px-4 sm:px-6 sm:pt-4 md:pt-5 md:px-7 flex justify-end z-20">
+        <div className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs font-semibold text-white/95 bg-white/10 backdrop-blur-md px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full border border-white/20 shadow-xs">
           <Calendar className="w-3.5 h-3.5 text-[#FDB813]" />
           <span>{formattedDate}</span>
         </div>
@@ -127,13 +127,13 @@ export const CorporateHeroBanner: React.FC<CorporateHeroBannerProps> = ({
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="relative z-10 px-6 py-5 md:px-8 md:py-6 flex flex-col lg:flex-row items-center justify-between gap-6"
+        className="relative z-10 px-4 py-3 sm:px-6 sm:py-5 md:px-8 md:py-6 flex flex-col lg:flex-row items-center justify-between gap-4 sm:gap-6"
       >
         {/* Left Side: Greeting, Welcome Headline, Subtitle & Action Buttons */}
-        <div className="flex-1 space-y-3.5 w-full max-w-xl">
+        <div className="flex-1 space-y-2.5 sm:space-y-3.5 w-full max-w-xl">
           {/* Greeting with waving emoji */}
           <motion.div variants={itemVariants} className="flex items-center gap-2">
-            <span className="text-sm font-medium text-white/90">
+            <span className="text-xs sm:text-sm font-medium text-white/90">
               {getGreeting()}, {user?.name || 'Super Admin (MD)'}
             </span>
             <span className="text-base select-none">👋</span>
@@ -141,21 +141,21 @@ export const CorporateHeroBanner: React.FC<CorporateHeroBannerProps> = ({
 
           {/* Title: Welcome to Forge India Connect */}
           <motion.div variants={itemVariants} className="space-y-1">
-            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white leading-tight">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-white leading-tight">
               Welcome to <span className="text-[#FDB813]">Forge India Connect</span>
             </h1>
-            <p className="text-xs md:text-sm text-blue-100/90 font-normal">
+            <p className="text-xs sm:text-sm text-blue-100/90 font-normal">
               Manage candidates, interviews and placement progress in one place.
             </p>
           </motion.div>
 
           {/* Action Buttons */}
-          <motion.div variants={itemVariants} className="flex flex-wrap items-center gap-3 pt-1">
+          <motion.div variants={itemVariants} className="flex flex-wrap items-center gap-2.5 sm:gap-3 pt-1">
             {onAddCandidate && (
               <button
                 type="button"
                 onClick={onAddCandidate}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold bg-[#FDB813] hover:bg-[#F5A623] text-[#0A1A3A] shadow-md shadow-amber-500/25 transition-transform active:scale-95 cursor-pointer"
+                className="inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-[#FDB813] hover:bg-[#F5A623] text-[#0A1A3A] shadow-md shadow-amber-500/25 transition-transform active:scale-95 cursor-pointer flex-1 sm:flex-initial"
               >
                 <UserPlus className="w-4 h-4 text-[#0A1A3A]" />
                 <span>Add Candidate</span>
@@ -166,7 +166,7 @@ export const CorporateHeroBanner: React.FC<CorporateHeroBannerProps> = ({
               <button
                 type="button"
                 onClick={onViewCandidates}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs md:text-sm font-semibold bg-white/10 hover:bg-white/15 text-white border border-white/25 backdrop-blur-xs shadow-xs transition-colors cursor-pointer"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-white/10 hover:bg-white/15 text-white border border-white/25 backdrop-blur-xs shadow-xs transition-colors cursor-pointer flex-1 sm:flex-initial"
               >
                 <Users className="w-4 h-4 text-white/90" />
                 <span>View Candidates</span>

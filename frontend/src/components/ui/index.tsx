@@ -155,11 +155,11 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className={clsx('relative bg-white rounded-2xl shadow-2xl w-full z-10 max-h-[90vh] overflow-y-auto', sizes[size])}>
+      <div className={clsx('relative bg-white rounded-2xl shadow-2xl w-full z-10 max-h-[92vh] overflow-y-auto', sizes[size])}>
         {title && (
-          <div className="flex items-center justify-between px-6 py-4 border-b border-fic-border">
+          <div className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 border-b border-fic-border">
             <h3 className="text-base font-semibold text-slate-800">{title}</h3>
             <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -168,7 +168,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
             </button>
           </div>
         )}
-        <div className="px-6 py-4">{children}</div>
+        <div className="px-4 py-3.5 sm:px-6 sm:py-4">{children}</div>
       </div>
     </div>
   );
@@ -187,15 +187,15 @@ interface TabsProps {
 }
 
 export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onChange }) => (
-  <div className="flex border-b border-fic-border gap-1 overflow-x-auto">
+  <div className="flex border-b border-fic-border gap-1 overflow-x-auto scrollbar-none px-2 sm:px-4">
     {tabs.map((t) => (
       <button
         key={t.id}
         onClick={() => onChange(t.id)}
         className={clsx(
-          'flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors duration-150 whitespace-nowrap',
+          'flex items-center gap-2 px-3 py-2.5 sm:px-4 sm:py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors duration-150 whitespace-nowrap flex-shrink-0',
           activeTab === t.id
-            ? 'border-fic-navy text-fic-navy'
+            ? 'border-fic-navy text-fic-navy font-semibold'
             : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
         )}
       >

@@ -79,30 +79,32 @@ export const AuditLogsPage = () => {
         <EmptyState title="No audit logs found" icon={<Shield className="w-12 h-12" />} description="Activity logs will appear here as the system is used." />
       ) : (
         <div className="bg-white rounded-xl border border-fic-border overflow-hidden">
-          <table className="min-w-full">
-            <thead>
-              <tr>
-                {['Timestamp', 'Actor', 'Role', 'Category', 'Action', 'Target', 'Details'].map(h => (
-                  <th key={h} className="fic-table-header">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {logs.map(log => (
-                <tr key={log._id} className="hover:bg-slate-50">
-                  <td className="fic-table-cell text-xs text-slate-500 whitespace-nowrap">{formatDateTime(log.timestamp)}</td>
-                  <td className="fic-table-cell text-sm font-medium text-slate-700">{log.actorName}</td>
-                  <td className="fic-table-cell text-xs text-slate-400">{log.actorRole?.replace(/_/g, ' ')}</td>
-                  <td className="fic-table-cell">
-                    <span className={`status-badge text-xs ${entityBadge[log.entityType] || 'bg-gray-100 text-gray-500'}`}>{log.entityType}</span>
-                  </td>
-                  <td className="fic-table-cell text-xs font-mono text-slate-700">{log.action?.replace(/_/g, ' ')}</td>
-                  <td className="fic-table-cell text-xs text-slate-500">{log.candidateName || log.applicationNumber || '-'}</td>
-                  <td className="fic-table-cell text-xs text-slate-400 max-w-xs truncate">{log.details || '-'}</td>
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr>
+                  {['Timestamp', 'Actor', 'Role', 'Category', 'Action', 'Target', 'Details'].map(h => (
+                    <th key={h} className="fic-table-header">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {logs.map(log => (
+                  <tr key={log._id} className="hover:bg-slate-50">
+                    <td className="fic-table-cell text-xs text-slate-500 whitespace-nowrap">{formatDateTime(log.timestamp)}</td>
+                    <td className="fic-table-cell text-sm font-medium text-slate-700">{log.actorName}</td>
+                    <td className="fic-table-cell text-xs text-slate-400">{log.actorRole?.replace(/_/g, ' ')}</td>
+                    <td className="fic-table-cell">
+                      <span className={`status-badge text-xs ${entityBadge[log.entityType] || 'bg-gray-100 text-gray-500'}`}>{log.entityType}</span>
+                    </td>
+                    <td className="fic-table-cell text-xs font-mono text-slate-700">{log.action?.replace(/_/g, ' ')}</td>
+                    <td className="fic-table-cell text-xs text-slate-500">{log.candidateName || log.applicationNumber || '-'}</td>
+                    <td className="fic-table-cell text-xs text-slate-400 max-w-xs truncate">{log.details || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           {total > 100 && (
             <div className="flex justify-between items-center px-4 py-3 border-t border-slate-100">
               <span className="text-xs text-slate-500">Showing {Math.min(100, logs.length)} of {total} entries</span>

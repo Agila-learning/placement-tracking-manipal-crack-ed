@@ -61,36 +61,38 @@ export const BanksPage = () => {
           action={<Button onClick={openCreate} leftIcon={<Plus className="w-4 h-4" />}>Add First Bank</Button>} />
       ) : (
         <div className="bg-white rounded-xl border border-fic-border overflow-hidden">
-          <table className="min-w-full">
-            <thead>
-              <tr>
-                {['Bank Name', 'Code', 'Description', 'Status', 'Actions'].map(h => (
-                  <th key={h} className="fic-table-header">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {banks.map(bank => (
-                <tr key={bank._id} className="hover:bg-slate-50">
-                  <td className="fic-table-cell font-medium text-slate-800">{bank.name}</td>
-                  <td className="fic-table-cell"><span className="font-mono text-xs bg-blue-50 text-fic-navy px-2 py-0.5 rounded">{bank.code}</span></td>
-                  <td className="fic-table-cell text-slate-500">{bank.description || '-'}</td>
-                  <td className="fic-table-cell">
-                    <Badge className={bank.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}>{bank.status}</Badge>
-                  </td>
-                  <td className="fic-table-cell">
-                    <div className="flex items-center gap-2">
-                      <Button size="sm" variant="ghost" leftIcon={<Edit2 className="w-3.5 h-3.5" />} onClick={() => openEdit(bank)}>Edit</Button>
-                      <Button size="sm" variant="ghost" onClick={() => setConfirmToggle(bank)}
-                        leftIcon={bank.status === 'ACTIVE' ? <ToggleRight className="w-3.5 h-3.5 text-green-600" /> : <ToggleLeft className="w-3.5 h-3.5 text-slate-400" />}>
-                        {bank.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
-                      </Button>
-                    </div>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr>
+                  {['Bank Name', 'Code', 'Description', 'Status', 'Actions'].map(h => (
+                    <th key={h} className="fic-table-header">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {banks.map(bank => (
+                  <tr key={bank._id} className="hover:bg-slate-50">
+                    <td className="fic-table-cell font-medium text-slate-800">{bank.name}</td>
+                    <td className="fic-table-cell"><span className="font-mono text-xs bg-blue-50 text-fic-navy px-2 py-0.5 rounded">{bank.code}</span></td>
+                    <td className="fic-table-cell text-slate-500">{bank.description || '-'}</td>
+                    <td className="fic-table-cell">
+                      <Badge className={bank.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}>{bank.status}</Badge>
+                    </td>
+                    <td className="fic-table-cell">
+                      <div className="flex items-center gap-2">
+                        <Button size="sm" variant="ghost" leftIcon={<Edit2 className="w-3.5 h-3.5" />} onClick={() => openEdit(bank)}>Edit</Button>
+                        <Button size="sm" variant="ghost" onClick={() => setConfirmToggle(bank)}
+                          leftIcon={bank.status === 'ACTIVE' ? <ToggleRight className="w-3.5 h-3.5 text-green-600" /> : <ToggleLeft className="w-3.5 h-3.5 text-slate-400" />}>
+                          {bank.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

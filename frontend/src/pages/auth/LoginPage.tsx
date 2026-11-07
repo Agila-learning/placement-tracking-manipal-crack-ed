@@ -168,18 +168,18 @@ export const LoginPage = () => {
       <div className="flex-1 bg-slate-50 flex flex-col">
 
         {/* Mobile header (visible only on small screens) */}
-        <div className="lg:hidden px-6 pt-8 pb-4 flex items-center gap-3 bg-white border-b border-slate-100">
-          <div className="w-10 h-10 bg-white border border-amber-400/40 rounded-xl flex items-center justify-center shadow-xs p-1.5">
+        <div className="lg:hidden px-4 sm:px-6 pt-6 sm:pt-8 pb-3 sm:pb-4 flex items-center gap-3 bg-white border-b border-slate-100">
+          <div className="w-10 h-10 bg-white border border-amber-400/40 rounded-xl flex items-center justify-center shadow-xs p-1.5 flex-shrink-0">
             <img src="/fic-logo.svg" alt="FIC" className="w-full h-full object-contain" />
           </div>
-          <div>
-            <div className="text-fic-navy font-bold text-sm leading-tight">Forge India Connect</div>
-            <div className="text-slate-500 text-xs">Banking Placement CRM</div>
+          <div className="min-w-0">
+            <div className="text-fic-navy font-bold text-sm leading-tight truncate">Forge India Connect</div>
+            <div className="text-slate-500 text-xs truncate">Banking Placement CRM</div>
           </div>
         </div>
 
         {/* Centered form area */}
-        <div className="flex-1 flex items-center justify-center px-6 py-10">
+        <div className="flex-1 flex items-center justify-center px-4 sm:px-6 py-6 sm:py-10">
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
@@ -187,7 +187,7 @@ export const LoginPage = () => {
             className="w-full max-w-sm"
           >
             {/* Card */}
-            <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-8">
+            <div className="bg-white rounded-3xl shadow-xl border border-slate-100 p-5 sm:p-8">
 
               {/* Logo badge */}
               <div className="flex flex-col items-center mb-7">

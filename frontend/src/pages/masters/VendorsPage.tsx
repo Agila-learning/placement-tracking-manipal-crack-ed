@@ -63,40 +63,42 @@ export const VendorsPage = () => {
           action={<Button onClick={openCreate} leftIcon={<Plus className="w-4 h-4" />}>Add First Vendor</Button>} />
       ) : (
         <div className="bg-white rounded-xl border border-fic-border overflow-hidden">
-          <table className="min-w-full">
-            <thead>
-              <tr>
-                {['Vendor Name', 'Code', 'Contact Person', 'Email', 'Applications', 'Status', 'Actions'].map(h => (
-                  <th key={h} className="fic-table-header">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {vendors.map(v => (
-                <tr key={v._id} className="hover:bg-slate-50">
-                  <td className="fic-table-cell font-medium text-slate-800">{v.name}</td>
-                  <td className="fic-table-cell"><span className="font-mono text-xs bg-blue-50 text-fic-navy px-2 py-0.5 rounded">{v.code}</span></td>
-                  <td className="fic-table-cell text-slate-600">{v.contactPerson || '-'}</td>
-                  <td className="fic-table-cell text-slate-500 text-xs">{v.email || '-'}</td>
-                  <td className="fic-table-cell">
-                    <span className="font-semibold text-fic-navy">{v.candidateCount || 0}</span>
-                  </td>
-                  <td className="fic-table-cell">
-                    <Badge className={v.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}>{v.status}</Badge>
-                  </td>
-                  <td className="fic-table-cell">
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="ghost" leftIcon={<Edit2 className="w-3.5 h-3.5" />} onClick={() => openEdit(v)}>Edit</Button>
-                      <Button size="sm" variant="ghost" onClick={() => setConfirmToggle(v)}
-                        leftIcon={v.status === 'ACTIVE' ? <ToggleRight className="w-3.5 h-3.5 text-green-600" /> : <ToggleLeft className="w-3.5 h-3.5" />}>
-                        {v.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
-                      </Button>
-                    </div>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr>
+                  {['Vendor Name', 'Code', 'Contact Person', 'Email', 'Applications', 'Status', 'Actions'].map(h => (
+                    <th key={h} className="fic-table-header">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {vendors.map(v => (
+                  <tr key={v._id} className="hover:bg-slate-50">
+                    <td className="fic-table-cell font-medium text-slate-800">{v.name}</td>
+                    <td className="fic-table-cell"><span className="font-mono text-xs bg-blue-50 text-fic-navy px-2 py-0.5 rounded">{v.code}</span></td>
+                    <td className="fic-table-cell text-slate-600">{v.contactPerson || '-'}</td>
+                    <td className="fic-table-cell text-slate-500 text-xs">{v.email || '-'}</td>
+                    <td className="fic-table-cell">
+                      <span className="font-semibold text-fic-navy">{v.candidateCount || 0}</span>
+                    </td>
+                    <td className="fic-table-cell">
+                      <Badge className={v.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}>{v.status}</Badge>
+                    </td>
+                    <td className="fic-table-cell">
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="ghost" leftIcon={<Edit2 className="w-3.5 h-3.5" />} onClick={() => openEdit(v)}>Edit</Button>
+                        <Button size="sm" variant="ghost" onClick={() => setConfirmToggle(v)}
+                          leftIcon={v.status === 'ACTIVE' ? <ToggleRight className="w-3.5 h-3.5 text-green-600" /> : <ToggleLeft className="w-3.5 h-3.5" />}>
+                          {v.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

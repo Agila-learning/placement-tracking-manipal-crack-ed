@@ -145,33 +145,33 @@ export const HorizontalNav = ({ children }: { children: React.ReactNode }) => {
     <div className="flex flex-col min-h-screen bg-slate-50">
       {/* Top Header */}
       <header className="bg-white border-b border-fic-border shadow-sm sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-1.5 rounded-lg text-fic-navy hover:bg-slate-100 md:hidden"
+              className="p-1.5 rounded-lg text-fic-navy hover:bg-slate-100 md:hidden flex-shrink-0"
               aria-label="Toggle navigation menu"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
 
-            <NavLink to="/dashboard" className="flex items-center gap-3 hover:opacity-95 transition-opacity">
+            <NavLink to="/dashboard" className="flex items-center gap-2.5 sm:gap-3 hover:opacity-95 transition-opacity min-w-0">
               <img
                 src="/fic-logo.svg"
                 alt="Forge India Connect"
-                className="h-10 w-10 object-contain rounded"
+                className="h-9 w-9 sm:h-10 sm:w-10 object-contain rounded flex-shrink-0"
               />
-              <div>
-                <div className="text-base font-bold text-fic-navy leading-tight tracking-tight">
+              <div className="min-w-0">
+                <div className="text-sm sm:text-base font-bold text-fic-navy leading-tight tracking-tight truncate">
                   Forge India Connect
                 </div>
-                <div className="text-xs text-fic-muted font-medium">Banking Placement CRM</div>
+                <div className="text-[10px] sm:text-xs text-fic-muted font-medium truncate">Banking Placement CRM</div>
               </div>
             </NavLink>
           </div>
 
-          <div className="flex items-center gap-2.5 sm:gap-3.5">
+          <div className="flex items-center gap-1.5 sm:gap-3.5 flex-shrink-0">
             <div className="hidden sm:flex items-center text-xs px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium">
               <span className="w-2 h-2 rounded-full bg-emerald-500 mr-2 inline-block animate-pulse"></span>
               Live CRM System
@@ -200,7 +200,7 @@ export const HorizontalNav = ({ children }: { children: React.ReactNode }) => {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 8, scale: 0.95 }}
                     transition={{ duration: 0.15, ease: 'easeOut' }}
-                    className="absolute right-0 mt-2 w-80 bg-white border border-fic-border rounded-2xl shadow-xl z-50 overflow-hidden"
+                    className="absolute right-0 sm:right-0 mt-2 w-[calc(100vw-1.5rem)] max-w-xs sm:w-80 bg-white border border-fic-border rounded-2xl shadow-xl z-50 overflow-hidden"
                   >
                     <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -557,7 +557,7 @@ export const HorizontalNav = ({ children }: { children: React.ReactNode }) => {
       </AnimatePresence>
 
       {/* Main Content Area */}
-      <main className="flex-1 p-4 sm:p-6 max-w-7xl w-full mx-auto">{children}</main>
+      <main className="flex-1 p-3 sm:p-5 md:p-6 max-w-7xl w-full mx-auto">{children}</main>
     </div>
   );
 };
