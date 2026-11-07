@@ -1,6 +1,9 @@
 import { ApiResponse } from '../types';
 
-const BASE_URL = '/api';
+const RAW_API_URL = ((import.meta as any).env?.VITE_API_URL || '').trim().replace(/\/$/, '');
+export const BASE_URL = RAW_API_URL
+  ? (RAW_API_URL.endsWith('/api') ? RAW_API_URL : `${RAW_API_URL}/api`)
+  : '/api';
 
 class ApiClient {
   private async request<T>(

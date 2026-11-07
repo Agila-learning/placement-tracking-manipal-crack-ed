@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: fic-crm-backend
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm --prefix backend install && npm --prefix backend run build
+    startCommand: npm --prefix backend run start
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: 5000
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 8h
+      - key: REFRESH_EXPIRES_IN
+        value: 7d
+      - key: COOKIE_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        value: https://*.vercel.app,http://localhost:5173
+

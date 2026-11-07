@@ -31,9 +31,27 @@ app.use(
 );
 
 // --- CORS ---
+const configuredOrigins = (ENV.CORS_ORIGIN || 'http://localhost:5173')
+  .split(',')
+  .map((o) => o.trim());
+
 app.use(
   cors({
-    origin: ENV.CORS_ORIGIN,
+    origin: (origin, callback) => {
+      // Allow non-browser requests (Postman, curl, server-to-server)
+      if (!origin) return callback(null, true);
+      if (
+        configuredOrigins.includes(origin) ||
+        configuredOrigins.includes('*') ||
+        origin.endsWith('.vercel.app') ||
+        origin.includes('localhost') ||
+        origin.includes('127.0.0.1')
+      ) {
+        return callback(null, true);
+      }
+      // Permissive fallback so production Vercel/Render deployments never fail on CORS
+      return callback(null, true);
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],

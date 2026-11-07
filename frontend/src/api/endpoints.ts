@@ -1,4 +1,4 @@
-import { api } from './client';
+import { api, BASE_URL } from './client';
 import { User, Bank, Vendor, Program, Application, DashboardStats, ActivityLog } from '../types';
 
 // Auth
@@ -89,9 +89,9 @@ export const reportsApi = {
   enrollmentFee: (params?: Record<string, string>) =>
     api.get<Application[]>(`/reports/enrollment-fee?${new URLSearchParams(params || {}).toString()}`),
   exportInterview: (params?: Record<string, string>) =>
-    `/api/reports/interview-status/export?${new URLSearchParams(params || {}).toString()}`,
+    `${BASE_URL}/reports/interview-status/export?${new URLSearchParams(params || {}).toString()}`,
   exportEnrollment: (params?: Record<string, string>) =>
-    `/api/reports/enrollment-fee/export?${new URLSearchParams(params || {}).toString()}`,
+    `${BASE_URL}/reports/enrollment-fee/export?${new URLSearchParams(params || {}).toString()}`,
 };
 
 // Audit Logs

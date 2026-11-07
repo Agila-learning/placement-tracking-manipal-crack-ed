@@ -5,6 +5,7 @@ import {
   Activity, MapPin, Phone, Mail, Edit2, AlertCircle, CheckCircle, ShieldCheck
 } from 'lucide-react';
 import { applicationsApi } from '../../api/endpoints';
+import { BASE_URL } from '../../api/client';
 import { Application } from '../../types';
 import {
   Tabs, Button, Badge, LoadingSpinner, PageHeader, Card, Modal, Select, Textarea
@@ -489,7 +490,7 @@ export const CandidateDetailPage = () => {
                 {(candidate as any)?.resumeUrl && (
                   <div className="mt-4">
                     <a
-                      href={`/api/files/resume/${(candidate as any).resumeUrl.split('/').pop()}`}
+                      href={`${BASE_URL}/files/resume/${(candidate as any).resumeUrl.split('/').pop()}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 text-sm text-fic-navy hover:underline"

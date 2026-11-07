@@ -4,7 +4,7 @@ import {
   Search, Plus, Filter, Download, ChevronLeft, ChevronRight,
   RefreshCw, Eye, Users, Edit2
 } from 'lucide-react';
-import { applicationsApi, banksApi, vendorsApi, programsApi, usersApi } from '../../api/endpoints';
+import { applicationsApi, banksApi, vendorsApi, programsApi, usersApi, reportsApi } from '../../api/endpoints';
 import { Application, Bank, Vendor, Program, User, ALL_APPLICATION_STATUSES } from '../../types';
 import { appStatusBadge, interviewStatusBadge, paymentStatusBadge, loanStatusBadge, campusStatusBadge, formatDate } from '../../utils/statusHelpers';
 import { Badge, Button, Select, EmptyState, LoadingSpinner, PageHeader } from '../../components/ui';
@@ -121,7 +121,7 @@ export const CandidatesPage = () => {
     if (filterStatus) params.status = filterStatus;
     if (fromDate) params.fromDate = fromDate;
     if (toDate) params.toDate = toDate;
-    const url = `/api/reports/interview-status/export?${new URLSearchParams(params).toString()}`;
+    const url = reportsApi.exportInterview(params);
     const token = localStorage.getItem('fic_token');
     window.open(`${url}&_t=${token}`, '_blank');
   };
