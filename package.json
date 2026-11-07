@@ -1,4 +1,14 @@
 {
+  "name": "fic-crm",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "npm --prefix backend run build",
+    "build:all": "npm --prefix backend run build && npm --prefix frontend run build",
+    "build:backend": "npm --prefix backend run build",
+    "build:frontend": "npm --prefix frontend run build",
+    "start": "npm --prefix backend run start"
+  },
   "dependencies": {
     "framer-motion": "^14.10.0"
   }
