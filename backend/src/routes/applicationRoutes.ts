@@ -16,6 +16,7 @@ import {
   updateCommissionStatus,
   updateEnrollmentFee,
   updateCandidateAndApplicationDetails,
+  syncProgramFee,
 } from '../controllers/candidateController';
 import { authenticateToken } from '../middleware/auth';
 import { hrAndAbove, adminAndAbove, accountsAndAbove } from '../middleware/rbac';
@@ -72,6 +73,7 @@ router.patch('/:applicationId/commission', adminAndAbove, updateCommissionStatus
 
 // Enrollment fee edit
 router.patch('/:applicationId/payment/fee', accountsAndAbove, updateEnrollmentFee);
+router.post('/:id/sync-program-fee', accountsAndAbove, syncProgramFee);
 
 export default router;
 

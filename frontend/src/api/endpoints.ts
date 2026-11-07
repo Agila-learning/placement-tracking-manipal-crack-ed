@@ -80,6 +80,8 @@ export const applicationsApi = {
     api.patch(`/applications/${applicationId}/payment/fee`, data),
   updateCandidateDetails: (id: string, data: any) =>
     api.put<Application>(`/applications/${id}/candidate-details`, data),
+  syncProgramFee: (id: string) =>
+    api.post<any>(`/applications/${id}/sync-program-fee`, {}),
 };
 
 // Reports

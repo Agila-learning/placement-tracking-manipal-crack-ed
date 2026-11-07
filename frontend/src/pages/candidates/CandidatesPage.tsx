@@ -267,8 +267,13 @@ export const CandidatesPage = () => {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-fic-border overflow-hidden">
-        {isLoading ? (
+      <div className="bg-white rounded-xl border border-fic-border overflow-hidden relative">
+        {isLoading && applications.length > 0 && (
+          <div className="absolute inset-0 bg-white/40 z-10 flex items-center justify-center backdrop-blur-[0.5px]">
+            <LoadingSpinner size="md" />
+          </div>
+        )}
+        {isLoading && applications.length === 0 ? (
           <div className="flex items-center justify-center py-20">
             <LoadingSpinner size="lg" />
           </div>

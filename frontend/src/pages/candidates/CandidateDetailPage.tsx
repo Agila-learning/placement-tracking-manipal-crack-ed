@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, User, Calendar, FileText, CreditCard, Building2,
-  Activity, MapPin, Phone, Mail, Edit2, AlertCircle, CheckCircle, ShieldCheck
+  Activity, MapPin, Phone, Mail, Edit2, AlertCircle, CheckCircle, ShieldCheck, RefreshCw
 } from 'lucide-react';
 import { applicationsApi } from '../../api/endpoints';
 import { BASE_URL } from '../../api/client';
@@ -98,9 +98,13 @@ export const CandidateDetailPage = () => {
   const [logs, setLogs] = useState<any[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
 
-  const load = async () => {
+  const [syncingFee, setSyncingFee] = useState(false);
+
+  const load = async (isInitial = false) => {
     if (!id) return;
-    setIsLoading(true);
+    if (isInitial || !application) {
+      setIsLoading(true);
+    }
     try {
       const res = await applicationsApi.get(id);
       if (res.success && res.data) setApplication(res.data);
@@ -108,6 +112,22 @@ export const CandidateDetailPage = () => {
       toast.error('Failed to load application.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSyncProgramFee = async () => {
+    if (!id) return;
+    setSyncingFee(true);
+    try {
+      const res = await applicationsApi.syncProgramFee(id);
+      if (res.success) {
+        toast.success(res.message || 'Fee synced with Program Master!');
+        await load(false);
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to sync fee from Program Master.');
+    } finally {
+      setSyncingFee(false);
     }
   };
 
@@ -121,7 +141,7 @@ export const CandidateDetailPage = () => {
     finally { setLogsLoading(false); }
   };
 
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => { load(true); }, [id]);
 
   useEffect(() => {
     if (activeTab === 'activity') loadLogs();
@@ -575,12 +595,24 @@ export const CandidateDetailPage = () => {
                   </div>
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <Badge className={paymentStatusBadge[a.payment.paymentStatus]}>{a.payment.paymentStatus}</Badge>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap items-center">
                       {hasRole('SUPER_ADMIN', 'ADMIN', 'ACCOUNTS') && (
-                        <Button size="sm" variant="secondary" leftIcon={<Edit2 className="w-3.5 h-3.5" />}
-                          onClick={() => { setFeeForm({ enrollmentFeeAmount: String(a.payment!.enrollmentFeeAmount), remarks: '' }); setShowFeeModal(true); }}>
-                          Edit Fee
-                        </Button>
+                        <>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            leftIcon={<RefreshCw className={`w-3.5 h-3.5 ${syncingFee ? 'animate-spin' : ''}`} />}
+                            onClick={handleSyncProgramFee}
+                            disabled={syncingFee}
+                            title="Update candidate enrollment fee to match the latest program fee from Masters"
+                          >
+                            {syncingFee ? 'Syncing…' : 'Sync from Program'}
+                          </Button>
+                          <Button size="sm" variant="secondary" leftIcon={<Edit2 className="w-3.5 h-3.5" />}
+                            onClick={() => { setFeeForm({ enrollmentFeeAmount: String(a.payment!.enrollmentFeeAmount), remarks: '' }); setShowFeeModal(true); }}>
+                            Edit Fee
+                          </Button>
+                        </>
                       )}
                       {hasRole('SUPER_ADMIN', 'ADMIN', 'ACCOUNTS') &&
                         a.payment.paymentStatus !== 'Not Applicable' &&

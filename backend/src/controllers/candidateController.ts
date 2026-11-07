@@ -510,9 +510,32 @@ export const getApplicationById = async (req: Request, res: Response): Promise<v
       return;
     }
 
+    // Auto-sync enrollment fee if Program Master was updated
+    let finalPayment: any = payment;
+    if (application.programId && payment) {
+      const prog = await Program.findById(application.programId).select('enrollmentFeeAmount').lean();
+      if (prog && prog.enrollmentFeeAmount !== undefined && prog.enrollmentFeeAmount !== payment.enrollmentFeeAmount) {
+        const updatedPayment = await Payment.findOne({ applicationId: id });
+        if (updatedPayment) {
+          updatedPayment.enrollmentFeeAmount = prog.enrollmentFeeAmount;
+          const paid = Number(updatedPayment.amountPaid) || 0;
+          updatedPayment.balanceAmount = Math.max(0, prog.enrollmentFeeAmount - paid);
+          if (paid >= prog.enrollmentFeeAmount && prog.enrollmentFeeAmount > 0) {
+            updatedPayment.paymentStatus = 'Paid';
+          } else if (paid > 0) {
+            updatedPayment.paymentStatus = 'Partially Paid';
+          } else {
+            updatedPayment.paymentStatus = 'Pending';
+          }
+          await updatedPayment.save();
+          finalPayment = updatedPayment.toObject();
+        }
+      }
+    }
+
     sendSuccess(res, {
       ...application,
-      payment,
+      payment: finalPayment,
       loan,
       campus,
     });
@@ -1194,6 +1217,56 @@ export const updateEnrollmentFee = async (req: Request, res: Response): Promise<
     sendSuccess(res, payment, 'Enrollment fee updated successfully.');
   } catch (error) {
     sendError(res, 'Failed to update enrollment fee.', 500);
+  }
+};
+
+// ---- SYNC PROGRAM FEE FROM MASTER ----
+export const syncProgramFee = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const application = await Application.findById(id);
+    if (!application) {
+      sendError(res, 'Application not found.', 404);
+      return;
+    }
+    const program = await Program.findById(application.programId);
+    if (!program) {
+      sendError(res, 'Associated program not found in masters.', 404);
+      return;
+    }
+    const payment = await Payment.findOne({ applicationId: id });
+    if (!payment) {
+      sendError(res, 'Payment record not found.', 404);
+      return;
+    }
+
+    const previousFee = payment.enrollmentFeeAmount;
+    payment.enrollmentFeeAmount = program.enrollmentFeeAmount;
+    const paid = Number(payment.amountPaid) || 0;
+    payment.balanceAmount = Math.max(0, program.enrollmentFeeAmount - paid);
+    if (paid >= program.enrollmentFeeAmount && program.enrollmentFeeAmount > 0) {
+      payment.paymentStatus = 'Paid';
+    } else if (paid > 0) {
+      payment.paymentStatus = 'Partially Paid';
+    } else {
+      payment.paymentStatus = 'Pending';
+    }
+    await payment.save();
+
+    await logActivity({
+      req,
+      action: 'ENROLLMENT_FEE_UPDATED',
+      entityType: 'PAYMENT',
+      entityId: payment._id.toString(),
+      applicationNumber: application.applicationNumber,
+      previousState: { enrollmentFeeAmount: previousFee },
+      newState: { enrollmentFeeAmount: program.enrollmentFeeAmount, paymentStatus: payment.paymentStatus },
+      details: `Enrollment fee synced from Program Master (${program.name}): ₹${previousFee} -> ₹${program.enrollmentFeeAmount}`,
+    });
+
+    sendSuccess(res, payment, `Enrollment fee synced with Program Master (₹${program.enrollmentFeeAmount.toLocaleString('en-IN')}).`);
+  } catch (error: any) {
+    sendError(res, error.message || 'Failed to sync program fee.', 500);
   }
 };
 

@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { Program, IInterviewRoundConfig } from '../models/Program';
 import { Bank } from '../models/Bank';
+import { Application } from '../models/Application';
+import { Payment } from '../models/Payment';
 import { sendSuccess, sendError } from '../utils/response';
 import { logActivity } from '../utils/auditLogger';
 
@@ -153,13 +155,43 @@ export const updateProgram = async (req: Request, res: Response): Promise<void> 
       rounds: program.interviewRoundsConfig,
     };
 
-    if (name) program.name = name.trim();
+    if (name) {
+      program.name = name.trim();
+      await Application.updateMany(
+        { programId: program._id },
+        { programName: program.name }
+      );
+    }
     if (designation !== undefined) program.designation = designation.trim();
     if (salaryPackage !== undefined) program.salaryPackage = salaryPackage.trim();
     if (location !== undefined) program.location = location.trim();
     if (vendorAvailability) program.vendorAvailability = vendorAvailability;
     if (interviewRoundsConfig) program.interviewRoundsConfig = interviewRoundsConfig;
-    if (enrollmentFeeAmount !== undefined) program.enrollmentFeeAmount = Number(enrollmentFeeAmount);
+    if (enrollmentFeeAmount !== undefined) {
+      const newFee = Number(enrollmentFeeAmount);
+      program.enrollmentFeeAmount = newFee;
+
+      // Automatically sync all candidate payment records under this program
+      const applications = await Application.find({ programId: program._id }).select('_id');
+      const appIds = applications.map((a) => a._id);
+
+      if (appIds.length > 0) {
+        const payments = await Payment.find({ applicationId: { $in: appIds } });
+        for (const p of payments) {
+          p.enrollmentFeeAmount = newFee;
+          const paid = Number(p.amountPaid) || 0;
+          p.balanceAmount = Math.max(0, newFee - paid);
+          if (paid >= newFee && newFee > 0) {
+            p.paymentStatus = 'Paid';
+          } else if (paid > 0) {
+            p.paymentStatus = 'Partially Paid';
+          } else {
+            p.paymentStatus = 'Pending';
+          }
+          await p.save();
+        }
+      }
+    }
     if (paymentTrigger) program.paymentTrigger = paymentTrigger;
     if (isRefundable !== undefined) program.isRefundable = isRefundable;
     if (loanAvailable !== undefined) program.loanAvailable = loanAvailable;
