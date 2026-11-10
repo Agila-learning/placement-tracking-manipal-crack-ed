@@ -109,6 +109,7 @@ export const CandidateDetailPage = () => {
       const res = await applicationsApi.delete(id);
       toast.success(res.message || 'Candidate deleted permanently.');
       setShowDeleteConfirm(false);
+      window.dispatchEvent(new Event('fic:stats-refresh'));
       navigate('/candidates');
     } catch (err: any) {
       toast.error(err.message || 'Failed to delete candidate.');

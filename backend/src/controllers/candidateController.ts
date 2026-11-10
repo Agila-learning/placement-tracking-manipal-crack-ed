@@ -286,8 +286,8 @@ export const registerCandidateAndApplication = async (req: Request, res: Respons
     const loanStatusValue = isFullPayment
       ? 'Not Applicable'
       : !program.loanAvailable
-      ? 'Not Applicable'
-      : 'Not Sanctioned';
+        ? 'Not Applicable'
+        : 'Not Sanctioned';
 
     const [loanDoc] = await LoanStatus.create(
       [
@@ -573,8 +573,8 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
     if (overallStatus === 'Arrived in Campus') {
       await CampusStatus.findOneAndUpdate(
         { applicationId: application._id },
-        { 
-          campusStatus: 'Arrived in Campus', 
+        {
+          campusStatus: 'Arrived in Campus',
           arrivalDate: new Date(),
           applicationNumber: application.applicationNumber,
           candidateId: application.candidateId,
@@ -876,7 +876,7 @@ export const recordPayment = async (req: Request, res: Response): Promise<void> 
     // Handle manual status override if specified (e.g. 'Paid', 'Partially Paid', 'Pending')
     if (paymentStatus === 'Paid') {
       const amountToRecord = amount ? parseFloat(String(amount)) : (payment.balanceAmount > 0 ? payment.balanceAmount : payment.enrollmentFeeAmount);
-      
+
       payment.transactions.push({
         transactionId: transactionId.trim(),
         amount: amountToRecord,
@@ -1325,6 +1325,8 @@ export const getDashboardStats = async (_req: Request, res: Response): Promise<v
       );
     }
 
+    const activeAppIds = await Application.find().distinct('_id');
+
     const [
       totalApplications,
       byStatus,
@@ -1341,9 +1343,18 @@ export const getDashboardStats = async (_req: Request, res: Response): Promise<v
       Application.aggregate([{ $group: { _id: '$vendorName', count: { $sum: 1 } } }]),
       Application.aggregate([{ $group: { _id: '$bankName', count: { $sum: 1 } } }]),
       Application.aggregate([{ $group: { _id: '$programName', count: { $sum: 1 } } }]),
-      Payment.aggregate([{ $group: { _id: '$paymentStatus', count: { $sum: 1 }, totalFee: { $sum: '$enrollmentFeeAmount' }, totalPaid: { $sum: '$amountPaid' } } }]),
-      LoanStatus.aggregate([{ $group: { _id: '$loanStatus', count: { $sum: 1 } } }]),
-      CampusStatus.aggregate([{ $group: { _id: '$campusStatus', count: { $sum: 1 } } }]),
+      Payment.aggregate([
+        { $match: { applicationId: { $in: activeAppIds } } },
+        { $group: { _id: '$paymentStatus', count: { $sum: 1 }, totalFee: { $sum: '$enrollmentFeeAmount' }, totalPaid: { $sum: '$amountPaid' } } },
+      ]),
+      LoanStatus.aggregate([
+        { $match: { applicationId: { $in: activeAppIds } } },
+        { $group: { _id: '$loanStatus', count: { $sum: 1 } } },
+      ]),
+      CampusStatus.aggregate([
+        { $match: { applicationId: { $in: activeAppIds } } },
+        { $group: { _id: '$campusStatus', count: { $sum: 1 } } },
+      ]),
       Application.aggregate([{ $group: { _id: '$commissionStatus', count: { $sum: 1 } } }]),
     ]);
 
@@ -1458,10 +1469,17 @@ export const deleteApplication = async (req: Request, res: Response): Promise<vo
     const candidateId = application.candidateId;
 
     // Delete linked financial, loan, campus, and application documents
+    const linkMatch = {
+      $or: [
+        { applicationId: application._id },
+        { applicationNumber: application.applicationNumber },
+      ],
+    };
+
     await Promise.all([
-      Payment.deleteMany({ applicationId: application._id }, { session }),
-      LoanStatus.deleteMany({ applicationId: application._id }, { session }),
-      CampusStatus.deleteMany({ applicationId: application._id }, { session }),
+      Payment.deleteMany(linkMatch, { session }),
+      LoanStatus.deleteMany(linkMatch, { session }),
+      CampusStatus.deleteMany(linkMatch, { session }),
       Application.deleteOne({ _id: application._id }, { session }),
     ]);
 
@@ -1474,7 +1492,12 @@ export const deleteApplication = async (req: Request, res: Response): Promise<vo
       if (remainingApps === 0) {
         const candidateDoc = await Candidate.findById(candidateId).session(session);
         resumePathToDelete = candidateDoc?.resumeUrl;
-        await Candidate.deleteOne({ _id: candidateId }, { session });
+        await Promise.all([
+          Payment.deleteMany({ candidateId }, { session }),
+          LoanStatus.deleteMany({ candidateId }, { session }),
+          CampusStatus.deleteMany({ candidateId }, { session }),
+          Candidate.deleteOne({ _id: candidateId }, { session }),
+        ]);
         candidateDeleted = true;
       } else {
         await Candidate.findByIdAndUpdate(
@@ -1493,7 +1516,7 @@ export const deleteApplication = async (req: Request, res: Response): Promise<vo
         if (fs.existsSync(resumePathToDelete)) {
           fs.unlinkSync(resumePathToDelete);
         }
-      } catch {}
+      } catch { }
     }
 
     await logActivity({

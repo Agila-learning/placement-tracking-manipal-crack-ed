@@ -87,18 +87,24 @@ export const HorizontalNav = ({ children }: { children: React.ReactNode }) => {
 
   // Load alert metrics for notification bell
   useEffect(() => {
-    applicationsApi.dashboard().then((res) => {
-      if (res.success && res.data) {
-        const d = res.data;
-        setAlerts({
-          pendingInterview: d.alerts?.pendingInterview ?? d.interviews?.yetToSchedule ?? 0,
-          feePending: d.alerts?.feePending ?? (d.byStatus?.['Enrollment Fee Pending'] || 0),
-          selectedCandidates: d.alerts?.selectedCandidates ?? d.selected ?? 0,
-          commissionPending: d.alerts?.commissionPending ?? d.commission?.pending ?? 0,
-          onHoldCandidates: d.alerts?.onHoldCandidates ?? (d.byStatus?.['On Hold'] || 0),
-        });
-      }
-    }).catch(() => {});
+    const fetchAlerts = () => {
+      applicationsApi.dashboard().then((res) => {
+        if (res.success && res.data) {
+          const d = res.data;
+          setAlerts({
+            pendingInterview: d.alerts?.pendingInterview ?? d.interviews?.yetToSchedule ?? 0,
+            feePending: d.alerts?.feePending ?? (d.byStatus?.['Enrollment Fee Pending'] || 0),
+            selectedCandidates: d.alerts?.selectedCandidates ?? d.selected ?? 0,
+            commissionPending: d.alerts?.commissionPending ?? d.commission?.pending ?? 0,
+            onHoldCandidates: d.alerts?.onHoldCandidates ?? (d.byStatus?.['On Hold'] || 0),
+          });
+        }
+      }).catch(() => {});
+    };
+
+    fetchAlerts();
+    window.addEventListener('fic:stats-refresh', fetchAlerts);
+    return () => window.removeEventListener('fic:stats-refresh', fetchAlerts);
   }, [location.pathname]);
 
   const handleLogout = async () => {
