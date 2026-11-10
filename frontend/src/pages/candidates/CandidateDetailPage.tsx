@@ -2,13 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, User, Calendar, FileText, CreditCard, Building2,
-  Activity, MapPin, Phone, Mail, Edit2, AlertCircle, CheckCircle, ShieldCheck, RefreshCw
+  Activity, MapPin, Phone, Mail, Edit2, AlertCircle, CheckCircle, ShieldCheck, RefreshCw, Trash2
 } from 'lucide-react';
 import { applicationsApi } from '../../api/endpoints';
 import { BASE_URL } from '../../api/client';
 import { Application } from '../../types';
 import {
-  Tabs, Button, Badge, LoadingSpinner, PageHeader, Card, Modal, Select, Textarea
+  Tabs, Button, Badge, LoadingSpinner, PageHeader, Card, Modal, Select, Textarea, ConfirmDialog
 } from '../../components/ui';
 import {
   appStatusBadge, interviewStatusBadge, paymentStatusBadge, loanStatusBadge,
@@ -99,6 +99,23 @@ export const CandidateDetailPage = () => {
   const [logsLoading, setLogsLoading] = useState(false);
 
   const [syncingFee, setSyncingFee] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletingCandidate, setDeletingCandidate] = useState(false);
+
+  const handleDeleteCandidate = async () => {
+    if (!id) return;
+    setDeletingCandidate(true);
+    try {
+      const res = await applicationsApi.delete(id);
+      toast.success(res.message || 'Candidate deleted permanently.');
+      setShowDeleteConfirm(false);
+      navigate('/candidates');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete candidate.');
+    } finally {
+      setDeletingCandidate(false);
+    }
+  };
 
   const load = async (isInitial = false) => {
     if (!id) return;
@@ -406,6 +423,17 @@ export const CandidateDetailPage = () => {
             >
               Update Status
             </Button>
+            {hasRole('SUPER_ADMIN', 'ADMIN') && (
+              <Button
+                size="sm"
+                variant="danger"
+                leftIcon={<Trash2 className="w-3.5 h-3.5" />}
+                onClick={() => setShowDeleteConfirm(true)}
+                className="flex-1 sm:flex-initial justify-center"
+              >
+                Delete
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -1423,6 +1451,17 @@ export const CandidateDetailPage = () => {
           </div>
         </div>
       </Modal>
+
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDeleteCandidate}
+        isLoading={deletingCandidate}
+        title="Delete Candidate Permanently?"
+        message={`Are you sure you want to permanently delete "${a.candidateName}" (${a.applicationNumber})? This will erase the candidate profile, application, interview history, payment records, loan, and campus status. This cannot be undone.`}
+        confirmLabel="Delete Permanently"
+        confirmVariant="danger"
+      />
     </div>
   );
 };

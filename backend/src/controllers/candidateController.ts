@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
+import fs from 'fs';
 import { Candidate } from '../models/Candidate';
 import { Application } from '../models/Application';
 import { Payment } from '../models/Payment';
@@ -1425,4 +1426,99 @@ export const getDashboardStats = async (_req: Request, res: Response): Promise<v
     sendError(res, 'Failed to fetch dashboard stats.', 500);
   }
 };
+
+export const deleteApplication = async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params;
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    sendError(res, 'Invalid application ID.', 400);
+    return;
+  }
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const application = await Application.findById(id).session(session);
+    if (!application) {
+      await session.abortTransaction();
+      sendError(res, 'Application not found.', 404);
+      return;
+    }
+
+    const snapshot = {
+      applicationNumber: application.applicationNumber,
+      candidateName: application.candidateName,
+      candidateEmail: application.candidateEmail,
+      candidateMobile: application.candidateMobile,
+      bankName: application.bankName,
+      programName: application.programName,
+      overallStatus: application.overallStatus,
+    };
+
+    const candidateId = application.candidateId;
+
+    // Delete linked financial, loan, campus, and application documents
+    await Promise.all([
+      Payment.deleteMany({ applicationId: application._id }, { session }),
+      LoanStatus.deleteMany({ applicationId: application._id }, { session }),
+      CampusStatus.deleteMany({ applicationId: application._id }, { session }),
+      Application.deleteOne({ _id: application._id }, { session }),
+    ]);
+
+    // Clean up or decrement parent Candidate record
+    let resumePathToDelete: string | undefined;
+    let candidateDeleted = false;
+
+    if (candidateId) {
+      const remainingApps = await Application.countDocuments({ candidateId }).session(session);
+      if (remainingApps === 0) {
+        const candidateDoc = await Candidate.findById(candidateId).session(session);
+        resumePathToDelete = candidateDoc?.resumeUrl;
+        await Candidate.deleteOne({ _id: candidateId }, { session });
+        candidateDeleted = true;
+      } else {
+        await Candidate.findByIdAndUpdate(
+          candidateId,
+          { $inc: { totalApplicationsCount: -1 } },
+          { session }
+        );
+      }
+    }
+
+    await session.commitTransaction();
+
+    // Safely remove uploaded resume file from disk if candidate was completely removed
+    if (candidateDeleted && resumePathToDelete) {
+      try {
+        if (fs.existsSync(resumePathToDelete)) {
+          fs.unlinkSync(resumePathToDelete);
+        }
+      } catch {}
+    }
+
+    await logActivity({
+      req,
+      action: 'APPLICATION_DELETED',
+      entityType: 'APPLICATION',
+      entityId: id,
+      applicationNumber: snapshot.applicationNumber,
+      candidateName: snapshot.candidateName,
+      previousState: snapshot,
+      details: `Permanently deleted candidate ${snapshot.candidateName} (${snapshot.applicationNumber}) and linked payment/loan/campus records`,
+    });
+
+    sendSuccess(
+      res,
+      { deletedId: id, candidateDeleted },
+      `Candidate ${snapshot.candidateName} (${snapshot.applicationNumber}) deleted permanently.`
+    );
+  } catch (error: any) {
+    await session.abortTransaction();
+    console.error('[DeleteApplication] Error:', error);
+    sendError(res, error.message || 'Failed to delete candidate permanently.', 500);
+  } finally {
+    session.endSession();
+  }
+};
+
 

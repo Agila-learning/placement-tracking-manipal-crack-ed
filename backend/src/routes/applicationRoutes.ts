@@ -17,6 +17,7 @@ import {
   updateEnrollmentFee,
   updateCandidateAndApplicationDetails,
   syncProgramFee,
+  deleteApplication,
 } from '../controllers/candidateController';
 import { authenticateToken } from '../middleware/auth';
 import { hrAndAbove, adminAndAbove, accountsAndAbove } from '../middleware/rbac';
@@ -44,6 +45,9 @@ router.post(
 
 // Single application detail
 router.get('/:id', getApplicationById);
+
+// Permanently delete candidate & application (Admin & Super Admin)
+router.delete('/:id', adminAndAbove, deleteApplication);
 
 // Update overall status
 router.patch('/:id/status', hrAndAbove, updateApplicationStatus);

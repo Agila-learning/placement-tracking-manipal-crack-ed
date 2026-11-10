@@ -82,6 +82,7 @@ export const applicationsApi = {
     api.put<Application>(`/applications/${id}/candidate-details`, data),
   syncProgramFee: (id: string) =>
     api.post<any>(`/applications/${id}/sync-program-fee`, {}),
+  delete: (id: string) => api.delete<any>(`/applications/${id}`),
 };
 
 // Reports

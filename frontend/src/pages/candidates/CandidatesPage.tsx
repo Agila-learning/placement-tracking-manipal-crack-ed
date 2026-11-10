@@ -2,12 +2,12 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, Plus, Filter, Download, ChevronLeft, ChevronRight,
-  RefreshCw, Eye, Users, Edit2
+  RefreshCw, Eye, Users, Edit2, Trash2
 } from 'lucide-react';
 import { applicationsApi, banksApi, vendorsApi, programsApi, usersApi, reportsApi } from '../../api/endpoints';
 import { Application, Bank, Vendor, Program, User, ALL_APPLICATION_STATUSES } from '../../types';
 import { appStatusBadge, interviewStatusBadge, paymentStatusBadge, loanStatusBadge, campusStatusBadge, formatDate } from '../../utils/statusHelpers';
-import { Badge, Button, Select, EmptyState, LoadingSpinner, PageHeader } from '../../components/ui';
+import { Badge, Button, Select, EmptyState, LoadingSpinner, PageHeader, ConfirmDialog } from '../../components/ui';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { RegisterCandidateModal } from './RegisterCandidateModal';
@@ -23,6 +23,8 @@ export const CandidatesPage = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [showRegister, setShowRegister] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Application | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Filter state
   const [search, setSearch] = useState('');
@@ -124,6 +126,21 @@ export const CandidatesPage = () => {
     const url = reportsApi.exportInterview(params);
     const token = localStorage.getItem('fic_token');
     window.open(`${url}&_t=${token}`, '_blank');
+  };
+
+  const handleDeleteCandidate = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res = await applicationsApi.delete(deleteTarget._id);
+      toast.success(res.message || `Candidate ${deleteTarget.candidateName} deleted permanently.`);
+      setDeleteTarget(null);
+      loadApplications(page);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete candidate.');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -439,6 +456,17 @@ export const CandidatesPage = () => {
                               Edit
                             </Button>
                           )}
+                          {hasRole('SUPER_ADMIN', 'ADMIN') && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                              leftIcon={<Trash2 className="w-3.5 h-3.5" />}
+                              onClick={() => setDeleteTarget(app)}
+                            >
+                              Delete
+                            </Button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -481,6 +509,21 @@ export const CandidatesPage = () => {
           }}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteCandidate}
+        isLoading={deleting}
+        title="Delete Candidate Permanently?"
+        message={
+          deleteTarget
+            ? `Are you sure you want to permanently delete "${deleteTarget.candidateName}" (${deleteTarget.applicationNumber})? This will erase the candidate profile, application, interview history, payment records, loan, and campus status. This cannot be undone.`
+            : ''
+        }
+        confirmLabel="Delete Permanently"
+        confirmVariant="danger"
+      />
     </div>
   );
 };
