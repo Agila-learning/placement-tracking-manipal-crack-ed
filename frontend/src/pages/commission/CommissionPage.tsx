@@ -104,10 +104,8 @@ export const CommissionPage = () => {
 
   const [invoiceHeader, setInvoiceHeader] = useState({
     headerName: 'AVINASH VENKATARAMAN',
-    subHeader1: 'LICENSEE OF MANIPAL BFSI TAMIL NADU',
-    batchTitle: 'ADITYA BIRLA CAPITAL BATCH 7',
-    subHeader2: 'UNEXT LEARNING PRIVATE LIMITED',
-    bannerTitle: 'UNEXT LEARNING PRIVATE LIMITED',
+    headerAddressLine1: 'Chinna mariyamman,kovil street,',
+    headerAddressLine2: 'Krishnagiri 635001 - Tamilnadu',
     billToName: 'U-NEXT Learning Private Limited',
     billToAddress1: 'No.1/1, Swami Vivekananda Road,',
     billToAddress2: 'Off M G Road Bangalore, 560008',
@@ -123,6 +121,15 @@ export const CommissionPage = () => {
     stateCode: '33',
     hsnSac: '',
     signatoryName: 'Avinash Venkataraman',
+  });
+
+  // Fully editable invoice table headers (matching reference image)
+  const [tableHeaders, setTableHeaders] = useState({
+    col1: 'Sourcing for ABC B-7',
+    col2: 'Application No.',
+    col3: 'SLAB',
+    col4: 'No. of Students',
+    col5: 'Commission Amount',
   });
 
   // Invoice dynamic line items
@@ -161,10 +168,6 @@ export const CommissionPage = () => {
     if (format === 'CRACKED') {
       setInvoiceHeader((prev) => ({
         ...prev,
-        subHeader1: 'AUTHORIZED SOURCING PARTNER - CRACK-ED',
-        batchTitle: 'CRACK-ED BANKING TALENT BATCH 1',
-        subHeader2: 'CRACK-ED EDTECH PRIVATE LIMITED',
-        bannerTitle: 'CRACK-ED EDTECH PRIVATE LIMITED',
         billToName: 'Crack-ed EdTech Private Limited',
         billToAddress1: 'Corporate Towers, Sector 44,',
         billToAddress2: 'Near Huda City Centre',
@@ -176,13 +179,13 @@ export const CommissionPage = () => {
         invoiceNo: 'FIC-CRK-2026',
         poNumber: 'PO-CRK-9821',
       }));
+      setTableHeaders((prev) => ({
+        ...prev,
+        col1: 'Sourcing for Crack-ed Talent B-1',
+      }));
     } else {
       setInvoiceHeader((prev) => ({
         ...prev,
-        subHeader1: 'LICENSEE OF MANIPAL BFSI TAMIL NADU',
-        batchTitle: 'ADITYA BIRLA CAPITAL BATCH 7',
-        subHeader2: 'UNEXT LEARNING PRIVATE LIMITED',
-        bannerTitle: 'UNEXT LEARNING PRIVATE LIMITED',
         billToName: 'U-NEXT Learning Private Limited',
         billToAddress1: 'No.1/1, Swami Vivekananda Road,',
         billToAddress2: 'Off M G Road Bangalore, 560008',
@@ -193,6 +196,10 @@ export const CommissionPage = () => {
         refNo: 'FIC26089',
         invoiceNo: 'FIC26089',
         poNumber: 'POSTD2602865',
+      }));
+      setTableHeaders((prev) => ({
+        ...prev,
+        col1: 'Sourcing for ABC B-7',
       }));
     }
   };
@@ -346,6 +353,10 @@ export const CommissionPage = () => {
         const span = document.createElement('span');
         span.textContent = origInput.value;
         span.style.cssText = cloneInput.style.cssText;
+        span.style.display = 'inline-block';
+        span.style.border = 'none';
+        span.style.outline = 'none';
+        span.style.background = 'transparent';
         span.className = cloneInput.className;
         cloneInput.parentNode.replaceChild(span, cloneInput);
       }
@@ -396,8 +407,11 @@ export const CommissionPage = () => {
       max-width: 100% !important;
       margin: 0 auto !important;
       box-shadow: none !important;
-      border: 2px solid #000 !important;
-      padding: 16px 20px !important;
+      border: none !important;
+      padding: 0 !important;
+    }
+    .invoice-box {
+      border: 1.5px solid #000 !important;
     }
     table {
       width: 100%;
@@ -436,7 +450,8 @@ export const CommissionPage = () => {
     @page { size: A4 portrait; margin: 10mm 12mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: Arial, Helvetica, sans-serif; color: #000000; background: #ffffff; padding: 20px; }
-    #printable-invoice { width: 100%; max-width: 850px; margin: 0 auto; border: 2px solid #000; padding: 20px; }
+    #printable-invoice { width: 100%; max-width: 850px; margin: 0 auto; border: none; padding: 10px; }
+    .invoice-box { border: 1.5px solid #000; }
     table { width: 100%; border-collapse: collapse; }
     th, td { border: 1px solid #000; }
   </style>
@@ -809,142 +824,228 @@ export const CommissionPage = () => {
 
             {/* Collapsible Editor Fields */}
             {showEditorControls && (
-              <div className="pt-3 border-t border-slate-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+              <div className="pt-3 border-t border-slate-200 space-y-4 text-xs">
+                {/* 1. Header & Address */}
                 <div>
-                  <label className="font-bold text-slate-700 mb-1 block">Batch Number / Title *</label>
-                  <input
-                    type="text"
-                    className="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold focus:ring-1 focus:ring-fic-navy"
-                    value={invoiceHeader.batchTitle}
-                    onChange={(e) => setInvoiceHeader({ ...invoiceHeader, batchTitle: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <label className="font-bold text-slate-700 mb-1 block">Invoice Number *</label>
-                  <input
-                    type="text"
-                    className="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold focus:ring-1 focus:ring-fic-navy"
-                    value={invoiceHeader.invoiceNo}
-                    onChange={(e) => setInvoiceHeader({ ...invoiceHeader, invoiceNo: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <label className="font-bold text-slate-700 mb-1 block">Invoice Date *</label>
-                  <input
-                    type="text"
-                    className="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold focus:ring-1 focus:ring-fic-navy"
-                    value={invoiceHeader.invoiceDate}
-                    onChange={(e) => setInvoiceHeader({ ...invoiceHeader, invoiceDate: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <label className="font-bold text-slate-700 mb-1 block">Ref. No. *</label>
-                  <input
-                    type="text"
-                    className="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold focus:ring-1 focus:ring-fic-navy"
-                    value={invoiceHeader.refNo}
-                    onChange={(e) => setInvoiceHeader({ ...invoiceHeader, refNo: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <label className="font-bold text-slate-700 mb-1 block">PO Number *</label>
-                  <input
-                    type="text"
-                    className="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold focus:ring-1 focus:ring-fic-navy"
-                    value={invoiceHeader.poNumber}
-                    onChange={(e) => setInvoiceHeader({ ...invoiceHeader, poNumber: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <label className="font-bold text-slate-700 mb-1 block">Place of Service *</label>
-                  <input
-                    type="text"
-                    className="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold focus:ring-1 focus:ring-fic-navy"
-                    value={invoiceHeader.placeOfService}
-                    onChange={(e) => setInvoiceHeader({ ...invoiceHeader, placeOfService: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <label className="font-bold text-slate-700 mb-1 block">State Code *</label>
-                  <input
-                    type="text"
-                    className="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold focus:ring-1 focus:ring-fic-navy"
-                    value={invoiceHeader.stateCode}
-                    onChange={(e) => setInvoiceHeader({ ...invoiceHeader, stateCode: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <label className="font-bold text-slate-700 mb-1 block">HSN / SAC Code</label>
-                  <input
-                    type="text"
-                    className="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold focus:ring-1 focus:ring-fic-navy"
-                    placeholder="e.g. 998311"
-                    value={invoiceHeader.hsnSac}
-                    onChange={(e) => setInvoiceHeader({ ...invoiceHeader, hsnSac: e.target.value })}
-                  />
-                </div>
-
-                {/* Digital Signature Upload Field */}
-                <div>
-                  <label className="font-bold text-slate-700 mb-1 block">
-                    Attach Digital Signature (Image) *
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      accept="image/*"
-                      onChange={handleSignatureUpload}
-                      className="hidden"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-lg text-xs font-semibold text-slate-700 shadow-2xs"
-                    >
-                      <Upload className="w-3.5 h-3.5 text-blue-600" />
-                      <span>{digitalSignatureUrl ? 'Change Signature' : 'Upload Signature'}</span>
-                    </button>
-                    {digitalSignatureUrl && (
-                      <button
-                        type="button"
-                        onClick={() => setDigitalSignatureUrl(null)}
-                        className="text-xs text-red-500 hover:text-red-700 underline font-medium"
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                  {digitalSignatureUrl && (
-                    <div className="mt-1 text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> Digital signature attached
+                  <span className="font-bold text-slate-800 uppercase tracking-wide block mb-2">
+                    1. Top Header &amp; Address
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="font-semibold text-slate-700 mb-1 block">Center Header Name *</label>
+                      <input
+                        type="text"
+                        className="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold focus:ring-1 focus:ring-fic-navy bg-white"
+                        value={invoiceHeader.headerName}
+                        onChange={(e) => setInvoiceHeader({ ...invoiceHeader, headerName: e.target.value })}
+                      />
                     </div>
-                  )}
+                    <div>
+                      <label className="font-semibold text-slate-700 mb-1 block">Address Line 1 *</label>
+                      <input
+                        type="text"
+                        className="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold focus:ring-1 focus:ring-fic-navy bg-white"
+                        value={invoiceHeader.headerAddressLine1}
+                        onChange={(e) => setInvoiceHeader({ ...invoiceHeader, headerAddressLine1: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold text-slate-700 mb-1 block">Address Line 2 *</label>
+                      <input
+                        type="text"
+                        className="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold focus:ring-1 focus:ring-fic-navy bg-white"
+                        value={invoiceHeader.headerAddressLine2}
+                        onChange={(e) => setInvoiceHeader({ ...invoiceHeader, headerAddressLine2: e.target.value })}
+                      />
+                    </div>
+                  </div>
                 </div>
 
-                {/* Editable Candidate Particulars & Application Numbers */}
-                <div className="sm:col-span-2 lg:col-span-3 pt-4 border-t border-slate-200">
+                {/* 2. Metadata */}
+                <div>
+                  <span className="font-bold text-slate-800 uppercase tracking-wide block mb-2">
+                    2. Invoice Metadata
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                    <div>
+                      <label className="font-semibold text-slate-700 mb-1 block">Invoice Number *</label>
+                      <input
+                        type="text"
+                        className="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold focus:ring-1 focus:ring-fic-navy bg-white"
+                        value={invoiceHeader.invoiceNo}
+                        onChange={(e) => setInvoiceHeader({ ...invoiceHeader, invoiceNo: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold text-slate-700 mb-1 block">Invoice Date *</label>
+                      <input
+                        type="text"
+                        className="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold focus:ring-1 focus:ring-fic-navy bg-white"
+                        value={invoiceHeader.invoiceDate}
+                        onChange={(e) => setInvoiceHeader({ ...invoiceHeader, invoiceDate: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold text-slate-700 mb-1 block">PO Number *</label>
+                      <input
+                        type="text"
+                        className="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold focus:ring-1 focus:ring-fic-navy bg-white"
+                        value={invoiceHeader.poNumber}
+                        onChange={(e) => setInvoiceHeader({ ...invoiceHeader, poNumber: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold text-slate-700 mb-1 block">Place of Service *</label>
+                      <input
+                        type="text"
+                        className="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold focus:ring-1 focus:ring-fic-navy bg-white"
+                        value={invoiceHeader.placeOfService}
+                        onChange={(e) => setInvoiceHeader({ ...invoiceHeader, placeOfService: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold text-slate-700 mb-1 block">State Code *</label>
+                      <input
+                        type="text"
+                        className="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold focus:ring-1 focus:ring-fic-navy bg-white"
+                        value={invoiceHeader.stateCode}
+                        onChange={(e) => setInvoiceHeader({ ...invoiceHeader, stateCode: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold text-slate-700 mb-1 block">HSN / SAC Code</label>
+                      <input
+                        type="text"
+                        className="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold focus:ring-1 focus:ring-fic-navy bg-white"
+                        placeholder="e.g. 998311"
+                        value={invoiceHeader.hsnSac}
+                        onChange={(e) => setInvoiceHeader({ ...invoiceHeader, hsnSac: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold text-slate-700 mb-1 block">Signatory Name</label>
+                      <input
+                        type="text"
+                        className="w-full border border-slate-300 rounded-lg p-2 text-xs font-semibold focus:ring-1 focus:ring-fic-navy bg-white"
+                        value={invoiceHeader.signatoryName}
+                        onChange={(e) => setInvoiceHeader({ ...invoiceHeader, signatoryName: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold text-slate-700 mb-1 block">
+                        Attach Digital Signature
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          accept="image/*"
+                          onChange={handleSignatureUpload}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-300 hover:border-slate-400 rounded-lg text-xs font-semibold text-slate-700 shadow-2xs"
+                        >
+                          <Upload className="w-3.5 h-3.5 text-blue-600" />
+                          <span>{digitalSignatureUrl ? 'Change' : 'Upload'}</span>
+                        </button>
+                        {digitalSignatureUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setDigitalSignatureUrl(null)}
+                            className="text-xs text-red-500 hover:text-red-700 underline font-medium"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                      {digitalSignatureUrl && (
+                        <div className="mt-1 text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> Attached
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Table Column Headers (Fully Editable) */}
+                <div className="pt-2 border-t border-slate-200">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-bold text-xs uppercase tracking-wide text-slate-800 flex items-center gap-2">
+                    <span className="font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
+                      <span>🏷️</span>
+                      <span>3. Table Column Headers (Fully Editable)</span>
+                    </span>
+                    <span className="text-[11px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      Editable here or directly in the table headers below
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 block">Column 1 Header</label>
+                      <input
+                        type="text"
+                        className="w-full border border-slate-300 rounded-lg p-1.5 text-xs font-semibold focus:ring-1 focus:ring-fic-navy bg-white"
+                        value={tableHeaders.col1}
+                        onChange={(e) => setTableHeaders({ ...tableHeaders, col1: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 block">Column 2 Header</label>
+                      <input
+                        type="text"
+                        className="w-full border border-slate-300 rounded-lg p-1.5 text-xs font-semibold focus:ring-1 focus:ring-fic-navy bg-white"
+                        value={tableHeaders.col2}
+                        onChange={(e) => setTableHeaders({ ...tableHeaders, col2: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 block">Column 3 Header</label>
+                      <input
+                        type="text"
+                        className="w-full border border-slate-300 rounded-lg p-1.5 text-xs font-semibold focus:ring-1 focus:ring-fic-navy bg-white"
+                        value={tableHeaders.col3}
+                        onChange={(e) => setTableHeaders({ ...tableHeaders, col3: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 block">Column 4 Header</label>
+                      <input
+                        type="text"
+                        className="w-full border border-slate-300 rounded-lg p-1.5 text-xs font-semibold focus:ring-1 focus:ring-fic-navy bg-white"
+                        value={tableHeaders.col4}
+                        onChange={(e) => setTableHeaders({ ...tableHeaders, col4: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 block">Column 5 Header</label>
+                      <input
+                        type="text"
+                        className="w-full border border-slate-300 rounded-lg p-1.5 text-xs font-semibold focus:ring-1 focus:ring-fic-navy bg-white"
+                        value={tableHeaders.col5}
+                        onChange={(e) => setTableHeaders({ ...tableHeaders, col5: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. Candidate Particulars & Application Numbers */}
+                <div className="pt-2 border-t border-slate-200">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-bold text-slate-800 uppercase tracking-wide flex items-center gap-1.5">
                       <span>📝</span>
-                      <span>Candidate Particulars &amp; Application Numbers</span>
+                      <span>4. Candidate Particulars &amp; Application Numbers</span>
                     </span>
                     <span className="text-[11px] text-purple-700 font-bold bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
-                      Application No. is fully editable below &amp; in the table
+                      Editable here or inline in table rows below
                     </span>
                   </div>
                   <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                     {invoiceItems.map((item, idx) => (
                       <div
                         key={item.id || idx}
-                        className="grid grid-cols-1 sm:grid-cols-4 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200 items-center text-xs"
+                        className="grid grid-cols-1 sm:grid-cols-5 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200 items-center text-xs"
                       >
                         <div>
                           <label className="text-[10px] font-bold text-slate-500 block">Candidate #{idx + 1} Name</label>
@@ -974,31 +1075,30 @@ export const CommissionPage = () => {
                           />
                         </div>
                         <div>
-                          <label className="text-[10px] font-bold text-slate-500 block">Email &amp; Mobile</label>
-                          <div className="flex gap-1">
-                            <input
-                              type="text"
-                              className="w-1/2 border border-slate-300 rounded-lg p-1.5 text-[11px] bg-white"
-                              placeholder="Email"
-                              value={item.email}
-                              onChange={(e) => {
-                                const newItems = [...invoiceItems];
-                                newItems[idx] = { ...newItems[idx], email: e.target.value };
-                                setInvoiceItems(newItems);
-                              }}
-                            />
-                            <input
-                              type="text"
-                              className="w-1/2 border border-slate-300 rounded-lg p-1.5 text-[11px] bg-white"
-                              placeholder="Mobile"
-                              value={item.mobile}
-                              onChange={(e) => {
-                                const newItems = [...invoiceItems];
-                                newItems[idx] = { ...newItems[idx], mobile: e.target.value };
-                                setInvoiceItems(newItems);
-                              }}
-                            />
-                          </div>
+                          <label className="text-[10px] font-bold text-slate-500 block">SLAB</label>
+                          <input
+                            type="text"
+                            className="w-full border border-slate-300 rounded-lg p-1.5 text-xs bg-white"
+                            value={item.slab}
+                            onChange={(e) => {
+                              const newItems = [...invoiceItems];
+                              newItems[idx] = { ...newItems[idx], slab: e.target.value };
+                              setInvoiceItems(newItems);
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-500 block">Students</label>
+                          <input
+                            type="number"
+                            className="w-full border border-slate-300 rounded-lg p-1.5 text-xs bg-white"
+                            value={item.students}
+                            onChange={(e) => {
+                              const newItems = [...invoiceItems];
+                              newItems[idx] = { ...newItems[idx], students: Number(e.target.value) || 0 };
+                              setInvoiceItems(newItems);
+                            }}
+                          />
                         </div>
                         <div>
                           <label className="text-[10px] font-bold text-slate-500 block">Commission (₹)</label>
@@ -1032,411 +1132,516 @@ export const CommissionPage = () => {
               id="printable-invoice"
               className="bg-white text-black p-5 sm:p-8 md:p-10 shadow-2xl mx-auto min-w-[720px] max-w-[850px] font-sans text-[12px] leading-tight"
               style={{
-                border: '2px solid black',
                 color: '#000000',
                 backgroundColor: '#ffffff',
               }}
             >
-            {/* 1. Centered Main Header */}
-            <div className="text-center mb-6">
-              <div className="font-extrabold text-base sm:text-lg tracking-wide uppercase">
-                {invoiceHeader.headerName}
+              {/* Top Header (Borderless, outside the invoice box): Name, Address, and Date on Right */}
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontWeight: '800', fontSize: '18px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                    {invoiceHeader.headerName}
+                  </div>
+                  <div style={{ fontWeight: '600', fontSize: '14px', marginTop: '3px' }}>
+                    {invoiceHeader.headerAddressLine1}
+                  </div>
+                  <div style={{ fontWeight: '600', fontSize: '14px', marginTop: '2px' }}>
+                    {invoiceHeader.headerAddressLine2}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right', fontWeight: 'bold', fontSize: '13px', marginTop: '6px' }}>
+                  Date : {invoiceHeader.invoiceDate}
+                </div>
               </div>
-              <div className="font-bold text-xs sm:text-sm tracking-wide uppercase mt-0.5">
-                {invoiceHeader.subHeader1}
-              </div>
-              <div className="font-bold text-xs sm:text-sm tracking-wide uppercase mt-0.5">
-                {invoiceHeader.batchTitle}
-              </div>
-              <div className="font-bold text-xs sm:text-sm tracking-wide uppercase mt-0.5">
-                {invoiceHeader.subHeader2}
-              </div>
-            </div>
 
-            {/* 2. Ref.No. and Date Row */}
-            <div className="flex justify-between items-center mb-1.5 font-bold text-xs sm:text-sm">
-              <div>
-                Ref.No. <span className="font-semibold underline ml-1">{invoiceHeader.refNo}</span>
-              </div>
-              <div>
-                Date : <span className="font-semibold ml-1">{invoiceHeader.invoiceDate}</span>
-              </div>
-            </div>
-
-            {/* 3. Company Banner Box */}
-            <div
-              style={{
-                border: '1px solid black',
-                textAlign: 'center',
-                fontWeight: 'bold',
-                fontSize: '14px',
-                padding: '6px 4px',
-                letterSpacing: '0.05em',
-                textTransform: 'uppercase',
-                backgroundColor: '#ffffff',
-              }}
-            >
-              {invoiceHeader.bannerTitle}
-            </div>
-
-            {/* 4. TAX INVOICE Title */}
-            <div
-              style={{
-                borderLeft: '1px solid black',
-                borderRight: '1px solid black',
-                borderBottom: '1px solid black',
-                textAlign: 'center',
-                fontWeight: '900',
-                fontSize: '16px',
-                padding: '6px 4px',
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-              }}
-            >
-              TAX INVOICE
-            </div>
-
-            {/* 5. Two-Box Table (To on Left, Invoice Details on Right) */}
-            <table
-              style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                borderLeft: '1px solid black',
-                borderRight: '1px solid black',
-                borderBottom: '1px solid black',
-              }}
-            >
-              <tbody>
-                <tr>
-                  {/* Left Column: To Address */}
-                  <td
-                    style={{
-                      width: '52%',
-                      verticalAlign: 'top',
-                      padding: '8px 12px',
-                      borderRight: '1px solid black',
-                      lineHeight: '1.4',
-                      fontSize: '12px',
-                    }}
-                  >
-                    <div style={{ color: '#4b5563', fontWeight: 'bold' }}>To</div>
-                    <div style={{ fontWeight: 'bold', fontSize: '13px' }}>{invoiceHeader.billToName}</div>
-                    <div>{invoiceHeader.billToAddress1}</div>
-                    <div>{invoiceHeader.billToAddress2}</div>
-                    <div>{invoiceHeader.billToState}</div>
-                    <div style={{ marginTop: '6px' }}>
-                      CIN No: <span style={{ fontWeight: 'bold' }}>{invoiceHeader.cinNo}</span>
-                    </div>
-                    <div>
-                      PAN No: <span style={{ fontWeight: 'bold' }}>{invoiceHeader.panNo}</span>
-                    </div>
-                    <div>
-                      GSTIN: <span style={{ fontWeight: 'bold' }}>{invoiceHeader.gstin}</span>
-                    </div>
-                  </td>
-
-                  {/* Right Column: Invoice Metadata Table */}
-                  <td style={{ width: '48%', verticalAlign: 'top', padding: 0 }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                      <tbody>
-                        <tr style={{ borderBottom: '1px solid black' }}>
-                          <td style={{ padding: '4px 8px', fontWeight: 'bold', width: '45%' }}>Invoice No :</td>
-                          <td style={{ padding: '4px 8px', fontWeight: 'bold' }}>{invoiceHeader.invoiceNo}</td>
-                        </tr>
-                        <tr style={{ borderBottom: '1px solid black' }}>
-                          <td style={{ padding: '4px 8px', fontWeight: 'bold' }}>Invoice Date :</td>
-                          <td style={{ padding: '4px 8px' }}>{invoiceHeader.invoiceDate}</td>
-                        </tr>
-                        <tr style={{ borderBottom: '1px solid black' }}>
-                          <td style={{ padding: '4px 8px', fontWeight: 'bold' }}>Pan Number :</td>
-                          <td style={{ padding: '4px 8px', fontWeight: 'bold' }}>{invoiceHeader.panNo}</td>
-                        </tr>
-                        <tr style={{ borderBottom: '1px solid black' }}>
-                          <td style={{ padding: '4px 8px', fontWeight: 'bold' }}>PO Number :</td>
-                          <td style={{ padding: '4px 8px' }}>{invoiceHeader.poNumber}</td>
-                        </tr>
-                        <tr style={{ borderBottom: '1px solid black' }}>
-                          <td style={{ padding: '4px 8px', fontWeight: 'bold' }}>Place of service :</td>
-                          <td style={{ padding: '4px 8px' }}>{invoiceHeader.placeOfService}</td>
-                        </tr>
-                        <tr style={{ borderBottom: '1px solid black' }}>
-                          <td style={{ padding: '4px 8px', fontWeight: 'bold' }}>State code :</td>
-                          <td style={{ padding: '4px 8px' }}>{invoiceHeader.stateCode}</td>
-                        </tr>
-                        <tr>
-                          <td style={{ padding: '4px 8px', fontWeight: 'bold' }}>HSN/SAC Code :</td>
-                          <td style={{ padding: '4px 8px' }}>{invoiceHeader.hsnSac || '—'}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-
-            {/* 6. Line Items Table */}
-            <table
-              style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                borderLeft: '1px solid black',
-                borderRight: '1px solid black',
-                borderBottom: '1px solid black',
-                fontSize: '12px',
-              }}
-            >
-              <thead>
-                <tr
-                  style={{
-                    backgroundColor: '#ffffff',
-                    borderBottom: '1px solid black',
-                    textAlign: 'center',
-                    fontWeight: 'bold',
-                  }}
-                >
-                  <th style={{ borderRight: '1px solid black', padding: '6px 8px', width: '42%' }}>
-                    Particulars
-                  </th>
-                  <th style={{ borderRight: '1px solid black', padding: '6px 8px', width: '20%' }}>
-                    Application No.
-                  </th>
-                  <th style={{ borderRight: '1px solid black', padding: '6px 8px', width: '12%' }}>
-                    SLAB
-                  </th>
-                  <th style={{ borderRight: '1px solid black', padding: '6px 8px', width: '12%' }}>
-                    No. of Students
-                  </th>
-                  <th style={{ padding: '6px 8px', width: '14%' }}>
-                    Commission Amount
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoiceItems.map((item, idx) => (
-                  <tr key={item.id} style={{ borderBottom: '1px solid black' }}>
-                    <td style={{ borderRight: '1px solid black', padding: '8px 10px', verticalAlign: 'top' }}>
-                      <div style={{ fontWeight: 'bold' }}>
-                        {idx + 1}. {item.name}
-                      </div>
-                      <div style={{ fontSize: '11px', color: '#1f2937', paddingLeft: '14px' }}>
-                        Email: {item.email}
-                      </div>
-                      <div style={{ fontSize: '11px', color: '#1f2937', paddingLeft: '14px' }}>
-                        Mobile: {item.mobile}
-                      </div>
-                    </td>
-                    <td
-                      style={{
-                        borderRight: '1px solid black',
-                        padding: '8px 6px',
-                        textAlign: 'center',
-                        verticalAlign: 'top',
-                        fontFamily: 'monospace',
-                        fontWeight: 'bold',
-                      }}
-                    >
-                      <input
-                        type="text"
-                        value={item.appNo}
-                        title="Click to edit application number"
-                        onChange={(e) => {
-                          const newItems = [...invoiceItems];
-                          newItems[idx] = { ...newItems[idx], appNo: e.target.value };
-                          setInvoiceItems(newItems);
-                        }}
-                        style={{
-                          width: '100%',
-                          textAlign: 'center',
-                          backgroundColor: 'transparent',
-                          border: 'none',
-                          outline: 'none',
-                          fontFamily: 'monospace',
-                          fontWeight: 'bold',
-                          color: '#000000',
-                          fontSize: '12px',
-                          cursor: 'text',
-                        }}
-                      />
-                    </td>
-                    <td
-                      style={{
-                        borderRight: '1px solid black',
-                        padding: '8px 6px',
-                        textAlign: 'center',
-                        verticalAlign: 'top',
-                      }}
-                    >
-                      {item.slab}
-                    </td>
-                    <td
-                      style={{
-                        borderRight: '1px solid black',
-                        padding: '8px 6px',
-                        textAlign: 'center',
-                        verticalAlign: 'top',
-                      }}
-                    >
-                      {item.students}
-                    </td>
-                    <td
-                      style={{
-                        padding: '8px 10px',
-                        textAlign: 'right',
-                        verticalAlign: 'top',
-                        fontWeight: 'bold',
-                      }}
-                    >
-                      {item.amount}
-                    </td>
-                  </tr>
-                ))}
-
-                {/* Total Row */}
-                <tr style={{ borderBottom: '1px solid black' }}>
-                  <td
-                    colSpan={4}
-                    style={{
-                      borderRight: '1px solid black',
-                      padding: '6px 10px',
-                      fontWeight: 'bold',
-                      fontSize: '13px',
-                    }}
-                  >
-                    Total
-                  </td>
-                  <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 'bold', fontSize: '13px' }}>
-                    {invoiceGrandTotal}/-
-                  </td>
-                </tr>
-
-                {/* Grand Total Row */}
-                <tr style={{ borderBottom: '1px solid black' }}>
-                  <td
-                    colSpan={4}
-                    style={{
-                      borderRight: '1px solid black',
-                      padding: '6px 10px',
-                      fontWeight: 'bold',
-                      fontSize: '13px',
-                    }}
-                  >
-                    Grand Total
-                  </td>
-                  <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 'bold', fontSize: '13px' }}>
-                    {invoiceGrandTotal}/-
-                  </td>
-                </tr>
-
-                {/* Total In Words Row */}
-                <tr>
-                  <td colSpan={5} style={{ padding: '8px 10px', fontWeight: 'bold', textTransform: 'uppercase' }}>
-                    <span style={{ fontWeight: '900', marginRight: '6px' }}>Total In Words:</span>
-                    <span>{numberToWordsINR(invoiceGrandTotal)}</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-
-            {/* 7. Our Account Details Section (Standard Banking Details) */}
-            <div
-              style={{
-                borderLeft: '1px solid black',
-                borderRight: '1px solid black',
-                borderBottom: '1px solid black',
-              }}
-            >
+              {/* Main Bordered Invoice Box */}
               <div
+                className="invoice-box"
                 style={{
-                  padding: '5px 10px',
-                  fontWeight: 'bold',
-                  fontSize: '12px',
+                  border: '1.5px solid black',
                   backgroundColor: '#ffffff',
-                  borderBottom: '1px solid black',
                 }}
               >
-                Our Account Details :
-              </div>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', textAlign: 'center' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid black', fontWeight: 'bold' }}>
-                    <th style={{ borderRight: '1px solid black', padding: '4px' }}>Account Number</th>
-                    <th style={{ borderRight: '1px solid black', padding: '4px' }}>IFSC Code</th>
-                    <th style={{ borderRight: '1px solid black', padding: '4px' }}>Bank Name</th>
-                    <th style={{ borderRight: '1px solid black', padding: '4px' }}>Account Holder Name</th>
-                    <th style={{ borderRight: '1px solid black', padding: '4px' }}>PAN Number</th>
-                    <th style={{ padding: '4px' }}>Address</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td style={{ borderRight: '1px solid black', padding: '6px 4px', fontFamily: 'monospace', fontWeight: 'bold' }}>
-                      103001000038529
-                    </td>
-                    <td style={{ borderRight: '1px solid black', padding: '6px 4px', fontFamily: 'monospace', fontWeight: 'bold' }}>
-                      IOBA0001030
-                    </td>
-                    <td style={{ borderRight: '1px solid black', padding: '6px 4px' }}>
-                      Indian Overseas Bank
-                    </td>
-                    <td style={{ borderRight: '1px solid black', padding: '6px 4px' }}>
-                      Avinash venkataraman
-                    </td>
-                    <td style={{ borderRight: '1px solid black', padding: '6px 4px', fontFamily: 'monospace', fontWeight: 'bold' }}>
-                      DVCPA1920B
-                    </td>
-                    <td style={{ padding: '6px 4px', textAlign: 'left', fontSize: '10px' }}>
-                      Chinna mariyamman kovil street, Krishnagiri - 635001 - Tamilnadu.
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+                {/* 1. TAX INVOICE Header Bar */}
+                <div
+                  style={{
+                    borderBottom: '1px solid black',
+                    textAlign: 'center',
+                    fontWeight: '900',
+                    fontSize: '16px',
+                    padding: '6px 4px',
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  TAX INVOICE
+                </div>
 
-            {/* 8. Authorised Signatory Footer Box with Digital Signature Support */}
-            <div
-              style={{
-                borderLeft: '1px solid black',
-                borderRight: '1px solid black',
-                borderBottom: '1px solid black',
-                padding: '12px 14px',
-                minHeight: '110px',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'flex-end',
-              }}
-            >
-              <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '4px' }}>
-                Authorised Signatory
-              </div>
+                {/* 2. Two-Box Table (To on Left, Invoice Details on Right) */}
+                <table
+                  style={{
+                    width: '100%',
+                    borderCollapse: 'collapse',
+                    borderBottom: '1px solid black',
+                  }}
+                >
+                  <tbody>
+                    <tr>
+                      {/* Left Column: To Address */}
+                      <td
+                        style={{
+                          width: '52%',
+                          verticalAlign: 'top',
+                          padding: '8px 12px',
+                          borderRight: '1px solid black',
+                          lineHeight: '1.45',
+                          fontSize: '12px',
+                        }}
+                      >
+                        <div style={{ fontWeight: 'bold', color: '#111827' }}>To</div>
+                        <div style={{ fontWeight: 'bold', fontSize: '13px' }}>{invoiceHeader.billToName}</div>
+                        <div>{invoiceHeader.billToAddress1}</div>
+                        <div>{invoiceHeader.billToAddress2}</div>
+                        <div>{invoiceHeader.billToState}</div>
+                        <div style={{ marginTop: '5px' }}>
+                          CIN No: <span style={{ fontWeight: 'bold' }}>{invoiceHeader.cinNo}</span>
+                        </div>
+                        <div>
+                          PAN No: <span style={{ fontWeight: 'bold' }}>{invoiceHeader.panNo}</span>
+                        </div>
+                        <div>
+                          GSTIN: <span style={{ fontWeight: 'bold' }}>{invoiceHeader.gstin}</span>
+                        </div>
+                      </td>
 
-              {/* Signature Graphic Container */}
-              <div style={{ height: '48px', display: 'flex', alignItems: 'center' }}>
-                {digitalSignatureUrl ? (
-                  <img
-                    src={digitalSignatureUrl}
-                    alt="Digital Signature"
-                    style={{ maxHeight: '46px', maxWidth: '170px', objectFit: 'contain' }}
-                  />
-                ) : (
-                  <span
+                      {/* Right Column: Invoice Metadata Table */}
+                      <td style={{ width: '48%', verticalAlign: 'top', padding: 0 }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                          <tbody>
+                            <tr style={{ borderBottom: '1px solid black' }}>
+                              <td style={{ padding: '4px 8px', fontWeight: 'bold', width: '45%' }}>Invoice No :</td>
+                              <td style={{ padding: '4px 8px', fontWeight: 'bold' }}>{invoiceHeader.invoiceNo}</td>
+                            </tr>
+                            <tr style={{ borderBottom: '1px solid black' }}>
+                              <td style={{ padding: '4px 8px', fontWeight: 'bold' }}>Invoice Date :</td>
+                              <td style={{ padding: '4px 8px' }}>{invoiceHeader.invoiceDate}</td>
+                            </tr>
+                            <tr style={{ borderBottom: '1px solid black' }}>
+                              <td style={{ padding: '4px 8px', fontWeight: 'bold' }}>Pan Number :</td>
+                              <td style={{ padding: '4px 8px', fontWeight: 'bold' }}>{invoiceHeader.panNo}</td>
+                            </tr>
+                            <tr style={{ borderBottom: '1px solid black' }}>
+                              <td style={{ padding: '4px 8px', fontWeight: 'bold' }}>PO Number :</td>
+                              <td style={{ padding: '4px 8px' }}>{invoiceHeader.poNumber}</td>
+                            </tr>
+                            <tr style={{ borderBottom: '1px solid black' }}>
+                              <td style={{ padding: '4px 8px', fontWeight: 'bold' }}>Place of service :</td>
+                              <td style={{ padding: '4px 8px' }}>{invoiceHeader.placeOfService}</td>
+                            </tr>
+                            <tr style={{ borderBottom: '1px solid black' }}>
+                              <td style={{ padding: '4px 8px', fontWeight: 'bold' }}>State code :</td>
+                              <td style={{ padding: '4px 8px' }}>{invoiceHeader.stateCode}</td>
+                            </tr>
+                            <tr>
+                              <td style={{ padding: '4px 8px', fontWeight: 'bold' }}>HSN/SAC Code :</td>
+                              <td style={{ padding: '4px 8px' }}>{invoiceHeader.hsnSac || ''}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {/* 3. Line Items Table with EDITABLE HEADERS and Inline Inputs */}
+                <table
+                  style={{
+                    width: '100%',
+                    borderCollapse: 'collapse',
+                    borderBottom: '1px solid black',
+                    fontSize: '12px',
+                  }}
+                >
+                  <thead>
+                    <tr
+                      style={{
+                        backgroundColor: '#ffffff',
+                        borderBottom: '1px solid black',
+                        textAlign: 'center',
+                        fontWeight: 'bold',
+                      }}
+                    >
+                      <th style={{ borderRight: '1px solid black', padding: '6px 8px', width: '42%', verticalAlign: 'middle' }}>
+                        <input
+                          type="text"
+                          value={tableHeaders.col1}
+                          onChange={(e) => setTableHeaders({ ...tableHeaders, col1: e.target.value })}
+                          title="Click to edit column 1 header"
+                          style={{
+                            width: '100%',
+                            textAlign: 'center',
+                            fontWeight: 'bold',
+                            border: 'none',
+                            outline: 'none',
+                            backgroundColor: 'transparent',
+                            color: '#000000',
+                            fontSize: '12px',
+                            cursor: 'text',
+                          }}
+                        />
+                      </th>
+                      <th style={{ borderRight: '1px solid black', padding: '6px 8px', width: '18%', verticalAlign: 'middle' }}>
+                        <input
+                          type="text"
+                          value={tableHeaders.col2}
+                          onChange={(e) => setTableHeaders({ ...tableHeaders, col2: e.target.value })}
+                          title="Click to edit column 2 header"
+                          style={{
+                            width: '100%',
+                            textAlign: 'center',
+                            fontWeight: 'bold',
+                            border: 'none',
+                            outline: 'none',
+                            backgroundColor: 'transparent',
+                            color: '#000000',
+                            fontSize: '12px',
+                            cursor: 'text',
+                          }}
+                        />
+                      </th>
+                      <th style={{ borderRight: '1px solid black', padding: '6px 8px', width: '12%', verticalAlign: 'middle' }}>
+                        <input
+                          type="text"
+                          value={tableHeaders.col3}
+                          onChange={(e) => setTableHeaders({ ...tableHeaders, col3: e.target.value })}
+                          title="Click to edit column 3 header"
+                          style={{
+                            width: '100%',
+                            textAlign: 'center',
+                            fontWeight: 'bold',
+                            border: 'none',
+                            outline: 'none',
+                            backgroundColor: 'transparent',
+                            color: '#000000',
+                            fontSize: '12px',
+                            cursor: 'text',
+                          }}
+                        />
+                      </th>
+                      <th style={{ borderRight: '1px solid black', padding: '6px 8px', width: '14%', verticalAlign: 'middle' }}>
+                        <input
+                          type="text"
+                          value={tableHeaders.col4}
+                          onChange={(e) => setTableHeaders({ ...tableHeaders, col4: e.target.value })}
+                          title="Click to edit column 4 header"
+                          style={{
+                            width: '100%',
+                            textAlign: 'center',
+                            fontWeight: 'bold',
+                            border: 'none',
+                            outline: 'none',
+                            backgroundColor: 'transparent',
+                            color: '#000000',
+                            fontSize: '12px',
+                            cursor: 'text',
+                          }}
+                        />
+                      </th>
+                      <th style={{ padding: '6px 8px', width: '14%', verticalAlign: 'middle' }}>
+                        <input
+                          type="text"
+                          value={tableHeaders.col5}
+                          onChange={(e) => setTableHeaders({ ...tableHeaders, col5: e.target.value })}
+                          title="Click to edit column 5 header"
+                          style={{
+                            width: '100%',
+                            textAlign: 'center',
+                            fontWeight: 'bold',
+                            border: 'none',
+                            outline: 'none',
+                            backgroundColor: 'transparent',
+                            color: '#000000',
+                            fontSize: '12px',
+                            cursor: 'text',
+                          }}
+                        />
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoiceItems.map((item, idx) => (
+                      <tr key={item.id} style={{ borderBottom: '1px solid black' }}>
+                        <td style={{ borderRight: '1px solid black', padding: '8px 10px', verticalAlign: 'top' }}>
+                          <div style={{ fontWeight: 'bold' }}>
+                            {idx + 1}. {item.name}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#1f2937', paddingLeft: '14px' }}>
+                            Email: {item.email}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#1f2937', paddingLeft: '14px' }}>
+                            Mobile: -{item.mobile}
+                          </div>
+                        </td>
+                        <td
+                          style={{
+                            borderRight: '1px solid black',
+                            padding: '8px 6px',
+                            textAlign: 'center',
+                            verticalAlign: 'middle',
+                            fontWeight: 'bold',
+                          }}
+                        >
+                          <input
+                            type="text"
+                            value={item.appNo}
+                            title="Click to edit application number"
+                            onChange={(e) => {
+                              const newItems = [...invoiceItems];
+                              newItems[idx] = { ...newItems[idx], appNo: e.target.value };
+                              setInvoiceItems(newItems);
+                            }}
+                            style={{
+                              width: '100%',
+                              textAlign: 'center',
+                              backgroundColor: 'transparent',
+                              border: 'none',
+                              outline: 'none',
+                              fontWeight: 'bold',
+                              color: '#000000',
+                              fontSize: '12px',
+                              cursor: 'text',
+                            }}
+                          />
+                        </td>
+                        <td
+                          style={{
+                            borderRight: '1px solid black',
+                            padding: '8px 6px',
+                            textAlign: 'center',
+                            verticalAlign: 'middle',
+                          }}
+                        >
+                          <input
+                            type="text"
+                            value={item.slab}
+                            title="Click to edit slab"
+                            onChange={(e) => {
+                              const newItems = [...invoiceItems];
+                              newItems[idx] = { ...newItems[idx], slab: e.target.value };
+                              setInvoiceItems(newItems);
+                            }}
+                            style={{
+                              width: '100%',
+                              textAlign: 'center',
+                              backgroundColor: 'transparent',
+                              border: 'none',
+                              outline: 'none',
+                              color: '#000000',
+                              fontSize: '12px',
+                              cursor: 'text',
+                            }}
+                          />
+                        </td>
+                        <td
+                          style={{
+                            borderRight: '1px solid black',
+                            padding: '8px 6px',
+                            textAlign: 'center',
+                            verticalAlign: 'middle',
+                          }}
+                        >
+                          <input
+                            type="number"
+                            value={item.students}
+                            title="Click to edit no. of students"
+                            onChange={(e) => {
+                              const newItems = [...invoiceItems];
+                              newItems[idx] = { ...newItems[idx], students: Number(e.target.value) || 0 };
+                              setInvoiceItems(newItems);
+                            }}
+                            style={{
+                              width: '100%',
+                              textAlign: 'center',
+                              backgroundColor: 'transparent',
+                              border: 'none',
+                              outline: 'none',
+                              color: '#000000',
+                              fontSize: '12px',
+                              cursor: 'text',
+                            }}
+                          />
+                        </td>
+                        <td
+                          style={{
+                            padding: '8px 10px',
+                            textAlign: 'right',
+                            verticalAlign: 'middle',
+                            fontWeight: 'bold',
+                          }}
+                        >
+                          <input
+                            type="number"
+                            value={item.amount}
+                            title="Click to edit commission amount"
+                            onChange={(e) => {
+                              const newItems = [...invoiceItems];
+                              newItems[idx] = { ...newItems[idx], amount: Number(e.target.value) || 0 };
+                              setInvoiceItems(newItems);
+                            }}
+                            style={{
+                              width: '100%',
+                              textAlign: 'right',
+                              backgroundColor: 'transparent',
+                              border: 'none',
+                              outline: 'none',
+                              fontWeight: 'bold',
+                              color: '#000000',
+                              fontSize: '12px',
+                              cursor: 'text',
+                            }}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+
+                    {/* Total Row */}
+                    <tr style={{ borderBottom: '1px solid black' }}>
+                      <td
+                        colSpan={4}
+                        style={{
+                          borderRight: '1px solid black',
+                          padding: '6px 10px',
+                          fontWeight: 'bold',
+                          fontSize: '13px',
+                        }}
+                      >
+                        Total
+                      </td>
+                      <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 'bold', fontSize: '13px' }}>
+                        {invoiceGrandTotal}/-
+                      </td>
+                    </tr>
+
+                    {/* Grand Total Row */}
+                    <tr style={{ borderBottom: '1px solid black' }}>
+                      <td
+                        colSpan={4}
+                        style={{
+                          borderRight: '1px solid black',
+                          padding: '6px 10px',
+                          fontWeight: 'bold',
+                          fontSize: '13px',
+                        }}
+                      >
+                        Grand Total
+                      </td>
+                      <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 'bold', fontSize: '13px' }}>
+                        {invoiceGrandTotal}/-
+                      </td>
+                    </tr>
+
+                    {/* Total In Words Row */}
+                    <tr>
+                      <td colSpan={5} style={{ padding: '8px 10px', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                        <span style={{ fontWeight: '900', marginRight: '6px' }}>Total In Words:</span>
+                        <span>{numberToWordsINR(invoiceGrandTotal)}</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {/* 4. Our Account Details Section */}
+                <div style={{ borderBottom: '1px solid black' }}>
+                  <div
                     style={{
-                      fontFamily: 'Brush Script MT, cursive, Georgia, serif',
-                      fontSize: '24px',
-                      color: '#1e3a8a',
+                      padding: '5px 10px',
                       fontWeight: 'bold',
-                      letterSpacing: '1px',
+                      fontSize: '12px',
+                      backgroundColor: '#ffffff',
+                      borderBottom: '1px solid black',
                     }}
                   >
-                    V. Avinash
-                  </span>
-                )}
-              </div>
+                    Our Account Details :
+                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', textAlign: 'center' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid black', fontWeight: 'bold' }}>
+                        <th style={{ borderRight: '1px solid black', padding: '4px' }}>Account Number</th>
+                        <th style={{ borderRight: '1px solid black', padding: '4px' }}>IFSC Code</th>
+                        <th style={{ borderRight: '1px solid black', padding: '4px' }}>Bank Name</th>
+                        <th style={{ borderRight: '1px solid black', padding: '4px' }}>Account Holder Name</th>
+                        <th style={{ borderRight: '1px solid black', padding: '4px' }}>PAN Number</th>
+                        <th style={{ padding: '4px' }}>Address</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td style={{ borderRight: '1px solid black', padding: '6px 4px', fontFamily: 'monospace', fontWeight: 'bold' }}>
+                          103001000038529
+                        </td>
+                        <td style={{ borderRight: '1px solid black', padding: '6px 4px', fontFamily: 'monospace', fontWeight: 'bold' }}>
+                          IOBA0001030
+                        </td>
+                        <td style={{ borderRight: '1px solid black', padding: '6px 4px' }}>
+                          Indian Overseas Bank
+                        </td>
+                        <td style={{ borderRight: '1px solid black', padding: '6px 4px' }}>
+                          Avinash venkataraman
+                        </td>
+                        <td style={{ borderRight: '1px solid black', padding: '6px 4px', fontFamily: 'monospace', fontWeight: 'bold' }}>
+                          DVCPA1920B
+                        </td>
+                        <td style={{ padding: '6px 4px', textAlign: 'left', fontSize: '10px' }}>
+                          Chinna mariyamman kovil street, Krishnagiri - 635001 - Tamilnadu.
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
 
-              <div style={{ fontWeight: 'bold', fontSize: '12px', marginTop: '2px' }}>
-                ({invoiceHeader.signatoryName})
+                {/* 5. Authorised Signatory Footer Box with Digital Signature Support */}
+                <div
+                  style={{
+                    padding: '12px 14px',
+                    minHeight: '110px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'flex-end',
+                  }}
+                >
+                  <div style={{ fontWeight: 'bold', fontSize: '12px', marginBottom: '4px' }}>
+                    Authorised Signatory
+                  </div>
+
+                  {/* Signature Graphic Container */}
+                  <div style={{ height: '48px', display: 'flex', alignItems: 'center' }}>
+                    {digitalSignatureUrl ? (
+                      <img
+                        src={digitalSignatureUrl}
+                        alt="Digital Signature"
+                        style={{ maxHeight: '46px', maxWidth: '170px', objectFit: 'contain' }}
+                      />
+                    ) : (
+                      <span
+                        style={{
+                          fontFamily: 'Brush Script MT, cursive, Georgia, serif',
+                          fontSize: '24px',
+                          color: '#1e3a8a',
+                          fontWeight: 'bold',
+                          letterSpacing: '1px',
+                        }}
+                      >
+                        V. Avinash
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ fontWeight: 'bold', fontSize: '12px', marginTop: '2px' }}>
+                    ({invoiceHeader.signatoryName})
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
           </div>
 
           {/* Bottom Actions */}
