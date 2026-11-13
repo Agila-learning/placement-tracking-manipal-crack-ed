@@ -61,7 +61,7 @@ export const createBank = async (req: Request, res: Response): Promise<void> => 
 export const updateBank = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { name, description, status } = req.body;
+    const { name, code, description, status } = req.body;
 
     const bank = await Bank.findById(id);
     if (!bank) {
@@ -71,7 +71,15 @@ export const updateBank = async (req: Request, res: Response): Promise<void> => 
 
     const prev = { name: bank.name, status: bank.status };
 
-    if (name) bank.name = name.trim();
+    if (name) {
+      const cleanName = name.trim();
+      bank.name = cleanName;
+      // Keep Program and Application denormalized bank names in sync
+      await Program.updateMany({ bankId: bank._id }, { bankName: cleanName });
+      const { Application } = await import('../models/Application');
+      await Application.updateMany({ bankId: bank._id }, { bankName: cleanName });
+    }
+    if (code) bank.code = code.trim().toUpperCase();
     if (description !== undefined) bank.description = description.trim();
     if (status) bank.status = status;
 

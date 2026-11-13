@@ -33,9 +33,9 @@ export const ProgramsPage = () => {
   const load = async () => {
     setIsLoading(true);
     try {
-      const [p, b] = await Promise.all([programsApi.list(), banksApi.list({ status: 'ACTIVE' })]);
+      const [p, b] = await Promise.all([programsApi.list(), banksApi.list()]);
       setPrograms(p.data || []);
-      setBanks(b.data || []);
+      setBanks((b.data || []).filter(item => item.status !== 'INACTIVE'));
     } catch { toast.error('Failed to load programs.'); }
     finally { setIsLoading(false); }
   };
@@ -50,7 +50,7 @@ export const ProgramsPage = () => {
 
   const openEdit = (p: Program) => {
     setEditing(p);
-    const bankId = typeof p.bankId === 'object' ? (p.bankId as any)._id : p.bankId;
+    const bankId = p.bankId && typeof p.bankId === 'object' ? (p.bankId as any)._id : (p.bankId || '');
     setForm({
       bankId, name: p.name, code: p.code, designation: p.designation || '', salaryPackage: p.salaryPackage || '',
       location: p.location || '', enrollmentFeeAmount: String(p.enrollmentFeeAmount || 0),

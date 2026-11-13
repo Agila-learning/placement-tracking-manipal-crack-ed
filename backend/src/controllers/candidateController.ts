@@ -628,6 +628,11 @@ export const updateCandidateAndApplicationDetails = async (req: Request, res: Re
       stateCode,
       district,
       city,
+      bankId,
+      programId,
+      vendorId,
+      hrReferenceId,
+      paymentRoute,
       batchNumber,
       remarks,
     } = req.body;
@@ -660,6 +665,78 @@ export const updateCandidateAndApplicationDetails = async (req: Request, res: Re
     }
 
     const prevName = application.candidateName;
+
+    // Update Bank
+    if (bankId && String(application.bankId) !== String(bankId)) {
+      const bank = await Bank.findById(bankId);
+      if (bank) {
+        application.bankId = bank._id;
+        application.bankName = bank.name;
+      }
+    }
+
+    // Update Program
+    if (programId && String(application.programId) !== String(programId)) {
+      const program = await Program.findById(programId);
+      if (program) {
+        application.programId = program._id;
+        application.programName = program.name;
+        // If bank wasn't explicitly provided, sync bank from this program
+        if (!bankId && program.bankId) {
+          application.bankId = program.bankId;
+          application.bankName = program.bankName;
+        }
+
+        // Sync payment record fee if present
+        const payment = await Payment.findOne({ applicationId: application._id });
+        if (payment && program.enrollmentFeeAmount !== undefined) {
+          payment.enrollmentFeeAmount = program.enrollmentFeeAmount;
+          const paid = Number(payment.amountPaid) || 0;
+          payment.balanceAmount = Math.max(0, program.enrollmentFeeAmount - paid);
+          if (paid >= program.enrollmentFeeAmount && program.enrollmentFeeAmount > 0) {
+            payment.paymentStatus = 'Paid';
+          } else if (paid > 0) {
+            payment.paymentStatus = 'Partially Paid';
+          } else {
+            payment.paymentStatus = 'Pending';
+          }
+          await payment.save();
+        }
+      }
+    }
+
+    // Update Vendor
+    if (vendorId !== undefined) {
+      if (vendorId && vendorId !== 'NONE' && vendorId !== '') {
+        const vendor = await Vendor.findById(vendorId);
+        if (vendor) {
+          application.vendorId = vendor._id;
+          application.vendorName = vendor.name;
+        }
+      } else {
+        application.vendorId = undefined;
+        application.vendorName = '';
+      }
+    }
+
+    // Update HR Reference
+    if (hrReferenceId !== undefined) {
+      if (hrReferenceId && hrReferenceId !== 'NONE' && hrReferenceId !== '') {
+        const hr = await User.findById(hrReferenceId);
+        if (hr) {
+          application.hrReferenceId = hr._id;
+          application.hrReferenceName = hr.name;
+        }
+      } else {
+        application.hrReferenceId = undefined;
+        application.hrReferenceName = '';
+      }
+    }
+
+    // Update Payment Route
+    if (paymentRoute && (paymentRoute === 'ROUTE_A_VENDOR_LOAN' || paymentRoute === 'ROUTE_B_FULL_PAYMENT')) {
+      application.paymentRoute = paymentRoute;
+    }
 
     // Update application fields
     if (fullName) application.candidateName = fullName.trim();
@@ -695,7 +772,15 @@ export const updateCandidateAndApplicationDetails = async (req: Request, res: Re
       applicationNumber: application.applicationNumber,
       candidateName: application.candidateName,
       previousState: { name: prevName },
-      newState: { name: application.candidateName, mobile: application.candidateMobile, email: application.candidateEmail },
+      newState: {
+        name: application.candidateName,
+        mobile: application.candidateMobile,
+        email: application.candidateEmail,
+        bank: application.bankName,
+        program: application.programName,
+        vendor: application.vendorName,
+        hr: application.hrReferenceName,
+      },
       details: `Candidate details edited for application ${application.applicationNumber}`,
     });
 

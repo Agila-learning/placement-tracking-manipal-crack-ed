@@ -4,9 +4,9 @@ import {
   ArrowLeft, User, Calendar, FileText, CreditCard, Building2,
   Activity, MapPin, Phone, Mail, Edit2, AlertCircle, CheckCircle, ShieldCheck, RefreshCw, Trash2
 } from 'lucide-react';
-import { applicationsApi } from '../../api/endpoints';
+import { applicationsApi, banksApi, programsApi, vendorsApi, usersApi } from '../../api/endpoints';
 import { BASE_URL } from '../../api/client';
-import { Application } from '../../types';
+import { Application, Bank, Program, Vendor, User as UserType } from '../../types';
 import {
   Tabs, Button, Badge, LoadingSpinner, PageHeader, Card, Modal, Select, Textarea, ConfirmDialog
 } from '../../components/ui';
@@ -79,6 +79,11 @@ export const CandidateDetailPage = () => {
 
   // Edit Candidate Details Modal
   const [showEditDetailsModal, setShowEditDetailsModal] = useState(false);
+  const [banks, setBanks] = useState<Bank[]>([]);
+  const [programs, setPrograms] = useState<Program[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [hrList, setHrList] = useState<UserType[]>([]);
+  const [filteredEditPrograms, setFilteredEditPrograms] = useState<Program[]>([]);
   const [detailsForm, setDetailsForm] = useState({
     fullName: '',
     email: '',
@@ -86,6 +91,11 @@ export const CandidateDetailPage = () => {
     state: '',
     city: '',
     dateOfBirth: '',
+    bankId: '',
+    programId: '',
+    vendorId: '',
+    hrReferenceId: '',
+    paymentRoute: 'ROUTE_A_VENDOR_LOAN',
     batchNumber: '',
     remarks: '',
   });
@@ -165,20 +175,116 @@ export const CandidateDetailPage = () => {
     if (activeTab === 'activity') loadLogs();
   }, [activeTab, application]);
 
-  const openEditDetailsModal = () => {
+  const openEditDetailsModal = async () => {
     if (!application) return;
     const cand = typeof application.candidateId === 'object' ? application.candidateId : null;
-    setDetailsForm({
-      fullName: application.candidateName || '',
-      email: application.candidateEmail || '',
-      mobileNumber: application.candidateMobile || (cand as any)?.mobileNumber || '',
-      state: (cand as any)?.state || '',
-      city: (cand as any)?.city || (cand as any)?.district || '',
-      dateOfBirth: (cand as any)?.dateOfBirth ? (cand as any).dateOfBirth.substring(0, 10) : '',
-      batchNumber: application.batchNumber || '',
-      remarks: application.remarks || '',
-    });
+
+    try {
+      const [b, p, v, hr] = await Promise.all([
+        banksApi.list(),
+        programsApi.list(),
+        vendorsApi.list(),
+        usersApi.hrReferences(),
+      ]);
+      const validBanks = (b.data || []).filter((item) => item.status !== 'INACTIVE');
+      const validPrograms = (p.data || []).filter((item) => item.status !== 'INACTIVE');
+      const validVendors = (v.data || []).filter((item) => item.status !== 'INACTIVE');
+      const validHrs = hr.data || [];
+
+      setBanks(validBanks);
+      setPrograms(validPrograms);
+      setVendors(validVendors);
+      setHrList(validHrs);
+
+      const currentBankId = application.bankId
+        ? typeof application.bankId === 'object'
+          ? (application.bankId as any)._id
+          : application.bankId
+        : '';
+      const currentProgramId = application.programId
+        ? typeof application.programId === 'object'
+          ? (application.programId as any)._id
+          : application.programId
+        : '';
+      const currentVendorId = application.vendorId
+        ? typeof application.vendorId === 'object'
+          ? (application.vendorId as any)._id
+          : application.vendorId
+        : '';
+      const currentHrId = application.hrReferenceId
+        ? typeof application.hrReferenceId === 'object'
+          ? (application.hrReferenceId as any)._id
+          : application.hrReferenceId
+        : '';
+
+      setDetailsForm({
+        fullName: application.candidateName || '',
+        email: application.candidateEmail || '',
+        mobileNumber: application.candidateMobile || (cand as any)?.mobileNumber || '',
+        state: (cand as any)?.state || '',
+        city: (cand as any)?.city || (cand as any)?.district || '',
+        dateOfBirth: (cand as any)?.dateOfBirth ? (cand as any).dateOfBirth.substring(0, 10) : '',
+        bankId: currentBankId || '',
+        programId: currentProgramId || '',
+        vendorId: currentVendorId || '',
+        hrReferenceId: currentHrId || '',
+        paymentRoute: application.paymentRoute || 'ROUTE_A_VENDOR_LOAN',
+        batchNumber: application.batchNumber || '',
+        remarks: application.remarks || '',
+      });
+
+      if (currentBankId) {
+        const selectedBank = validBanks.find((bk) => bk._id === currentBankId);
+        const bankNameLower = selectedBank?.name?.toLowerCase().trim() || '';
+        let matched = validPrograms.filter(
+          (prg) =>
+            prg.bankId === currentBankId ||
+            (prg.bankId as any)?._id === currentBankId ||
+            String(prg.bankId) === String(currentBankId) ||
+            String((prg.bankId as any)?._id) === String(currentBankId)
+        );
+        if (matched.length === 0 && bankNameLower) {
+          matched = validPrograms.filter((prg) => {
+            const pBankName = (prg.bankName || (prg.bankId as any)?.name || '').toLowerCase().trim();
+            return pBankName.includes(bankNameLower) || bankNameLower.includes(pBankName);
+          });
+        }
+        setFilteredEditPrograms(matched.length > 0 ? matched : validPrograms);
+      } else {
+        setFilteredEditPrograms(validPrograms);
+      }
+    } catch {
+      toast.error('Failed to load master data for editing.');
+    }
+
     setShowEditDetailsModal(true);
+  };
+
+  const handleEditBankChange = (newBankId: string) => {
+    setDetailsForm((prev) => ({ ...prev, bankId: newBankId, programId: '' }));
+    if (!newBankId) {
+      setFilteredEditPrograms(programs);
+      return;
+    }
+    const selectedBank = banks.find((b) => b._id === newBankId);
+    const bankNameLower = selectedBank?.name?.toLowerCase().trim() || '';
+
+    let matched = programs.filter(
+      (p) =>
+        p.bankId === newBankId ||
+        (p.bankId as any)?._id === newBankId ||
+        String(p.bankId) === String(newBankId) ||
+        String((p.bankId as any)?._id) === String(newBankId)
+    );
+
+    if (matched.length === 0 && bankNameLower) {
+      matched = programs.filter((p) => {
+        const pBankName = (p.bankName || (p.bankId as any)?.name || '').toLowerCase().trim();
+        return pBankName.includes(bankNameLower) || bankNameLower.includes(pBankName);
+      });
+    }
+
+    setFilteredEditPrograms(matched.length > 0 ? matched : programs);
   };
 
   const handleSaveDetails = async () => {
@@ -191,7 +297,8 @@ export const CandidateDetailPage = () => {
       await applicationsApi.updateCandidateDetails(id!, detailsForm);
       toast.success('Candidate details updated successfully!');
       setShowEditDetailsModal(false);
-      await load();
+      window.dispatchEvent(new Event('fic:stats-refresh'));
+      await load(false);
     } catch (err: any) {
       toast.error(err.message || 'Failed to update candidate details.');
     } finally {
@@ -1341,100 +1448,208 @@ export const CandidateDetailPage = () => {
       <Modal
         isOpen={showEditDetailsModal}
         onClose={() => setShowEditDetailsModal(false)}
-        title={`Edit Candidate Details — ${a.candidateName}`}
-        size="lg"
+        title={`Edit Complete Candidate Details — ${a.candidateName}`}
+        size="2xl"
       >
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="fic-label">Candidate Full Name *</label>
-              <input
-                type="text"
-                className="fic-input"
-                value={detailsForm.fullName}
-                onChange={(e) => setDetailsForm({ ...detailsForm, fullName: e.target.value })}
-                required
-              />
-            </div>
+        <div className="space-y-5 max-h-[80vh] overflow-y-auto pr-1">
+          {/* Section 1: Candidate Personal Details */}
+          <div>
+            <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+              1. Candidate Information
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="fic-label">Candidate Full Name *</label>
+                <input
+                  type="text"
+                  className="fic-input"
+                  value={detailsForm.fullName}
+                  onChange={(e) => setDetailsForm({ ...detailsForm, fullName: e.target.value })}
+                  required
+                />
+              </div>
 
-            <div>
-              <label className="fic-label">Mobile Number *</label>
-              <input
-                type="tel"
-                className="fic-input"
-                value={detailsForm.mobileNumber}
-                onChange={(e) => setDetailsForm({ ...detailsForm, mobileNumber: e.target.value })}
-                required
-              />
-            </div>
+              <div>
+                <label className="fic-label">Mobile Number *</label>
+                <input
+                  type="tel"
+                  className="fic-input"
+                  value={detailsForm.mobileNumber}
+                  onChange={(e) => setDetailsForm({ ...detailsForm, mobileNumber: e.target.value })}
+                  required
+                />
+              </div>
 
-            <div>
-              <label className="fic-label">Email Address *</label>
-              <input
-                type="email"
-                className="fic-input"
-                value={detailsForm.email}
-                onChange={(e) => setDetailsForm({ ...detailsForm, email: e.target.value })}
-                required
-              />
-            </div>
+              <div>
+                <label className="fic-label">Email Address *</label>
+                <input
+                  type="email"
+                  className="fic-input"
+                  value={detailsForm.email}
+                  onChange={(e) => setDetailsForm({ ...detailsForm, email: e.target.value })}
+                  required
+                />
+              </div>
 
-            <div>
-              <label className="fic-label">Date of Birth</label>
-              <input
-                type="date"
-                className="fic-input"
-                value={detailsForm.dateOfBirth}
-                onChange={(e) => setDetailsForm({ ...detailsForm, dateOfBirth: e.target.value })}
-              />
-            </div>
+              <div>
+                <label className="fic-label">Date of Birth</label>
+                <input
+                  type="date"
+                  className="fic-input"
+                  value={detailsForm.dateOfBirth}
+                  onChange={(e) => setDetailsForm({ ...detailsForm, dateOfBirth: e.target.value })}
+                />
+              </div>
 
-            <div>
-              <label className="fic-label">State</label>
-              <input
-                type="text"
-                className="fic-input"
-                placeholder="e.g. Tamil Nadu"
-                value={detailsForm.state}
-                onChange={(e) => setDetailsForm({ ...detailsForm, state: e.target.value })}
-              />
-            </div>
+              <div>
+                <label className="fic-label">State</label>
+                <input
+                  type="text"
+                  className="fic-input"
+                  placeholder="e.g. Tamil Nadu"
+                  value={detailsForm.state}
+                  onChange={(e) => setDetailsForm({ ...detailsForm, state: e.target.value })}
+                />
+              </div>
 
-            <div>
-              <label className="fic-label">City / District</label>
-              <input
-                type="text"
-                className="fic-input"
-                placeholder="e.g. Chennai"
-                value={detailsForm.city}
-                onChange={(e) => setDetailsForm({ ...detailsForm, city: e.target.value })}
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="fic-label">Batch Number</label>
-              <input
-                type="text"
-                className="fic-input"
-                placeholder="e.g. Batch 2026-A"
-                value={detailsForm.batchNumber}
-                onChange={(e) => setDetailsForm({ ...detailsForm, batchNumber: e.target.value })}
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="fic-label">Remarks</label>
-              <textarea
-                rows={2}
-                className="fic-input"
-                placeholder="Additional candidate profile notes..."
-                value={detailsForm.remarks}
-                onChange={(e) => setDetailsForm({ ...detailsForm, remarks: e.target.value })}
-              />
+              <div>
+                <label className="fic-label">City / District</label>
+                <input
+                  type="text"
+                  className="fic-input"
+                  placeholder="e.g. Chennai"
+                  value={detailsForm.city}
+                  onChange={(e) => setDetailsForm({ ...detailsForm, city: e.target.value })}
+                />
+              </div>
             </div>
           </div>
 
-          <div className="flex gap-3 pt-2">
+          {/* Section 2: Bank, Program, HR & Vendor Assignments */}
+          <div className="pt-2 border-t border-slate-200">
+            <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+              2. Bank, Program &amp; Assignment Details
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="fic-label">Bank *</label>
+                <select
+                  className="fic-input"
+                  value={detailsForm.bankId}
+                  onChange={(e) => handleEditBankChange(e.target.value)}
+                  required
+                >
+                  <option value="">Select Bank</option>
+                  {banks.map((b) => (
+                    <option key={b._id} value={b._id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="fic-label">Program *</label>
+                <select
+                  className="fic-input"
+                  value={detailsForm.programId}
+                  onChange={(e) => setDetailsForm({ ...detailsForm, programId: e.target.value })}
+                  required
+                >
+                  <option value="">
+                    {detailsForm.bankId ? 'Select Program' : 'Select Bank First'}
+                  </option>
+                  {filteredEditPrograms.map((p) => (
+                    <option key={p._id} value={p._id}>
+                      {p.bankName ? `${p.name} (${p.bankName})` : p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="fic-label">HR Reference</label>
+                <select
+                  className="fic-input"
+                  value={detailsForm.hrReferenceId}
+                  onChange={(e) => setDetailsForm({ ...detailsForm, hrReferenceId: e.target.value })}
+                >
+                  <option value="">Select HR Reference</option>
+                  {hrList.map((h) => (
+                    <option key={h.id} value={h.id}>
+                      {h.name} ({h.employeeId})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="fic-label">Vendor</label>
+                <select
+                  className="fic-input"
+                  value={detailsForm.vendorId}
+                  onChange={(e) => setDetailsForm({ ...detailsForm, vendorId: e.target.value })}
+                >
+                  <option value="">Select Vendor</option>
+                  {vendors.map((v) => (
+                    <option key={v._id} value={v._id}>
+                      {v.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="fic-label">Payment Route</label>
+                <div className="flex gap-4 mt-1">
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="radio"
+                      name="editPaymentRoute"
+                      value="ROUTE_A_VENDOR_LOAN"
+                      checked={detailsForm.paymentRoute === 'ROUTE_A_VENDOR_LOAN'}
+                      onChange={(e) => setDetailsForm({ ...detailsForm, paymentRoute: e.target.value })}
+                    />
+                    Vendor Loan
+                  </label>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input
+                      type="radio"
+                      name="editPaymentRoute"
+                      value="ROUTE_B_FULL_PAYMENT"
+                      checked={detailsForm.paymentRoute === 'ROUTE_B_FULL_PAYMENT'}
+                      onChange={(e) => setDetailsForm({ ...detailsForm, paymentRoute: e.target.value })}
+                    />
+                    Full Payment
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label className="fic-label">Batch Number</label>
+                <input
+                  type="text"
+                  className="fic-input"
+                  placeholder="e.g. Batch 2026-A"
+                  value={detailsForm.batchNumber}
+                  onChange={(e) => setDetailsForm({ ...detailsForm, batchNumber: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="fic-label">Remarks</label>
+                <input
+                  type="text"
+                  className="fic-input"
+                  placeholder="e.g. Profile notes or reason for edit"
+                  value={detailsForm.remarks}
+                  onChange={(e) => setDetailsForm({ ...detailsForm, remarks: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-3 border-t border-slate-200">
             <Button
               variant="secondary"
               className="flex-1"
@@ -1447,7 +1662,7 @@ export const CandidateDetailPage = () => {
               isLoading={detailsLoading}
               onClick={handleSaveDetails}
             >
-              Save Changes
+              Save All Changes
             </Button>
           </div>
         </div>

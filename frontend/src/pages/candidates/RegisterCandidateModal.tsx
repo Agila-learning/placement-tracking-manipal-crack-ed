@@ -52,14 +52,14 @@ export const RegisterCandidateModal: React.FC<Props> = ({ isOpen, onClose, onSuc
     const load = async () => {
       try {
         const [b, v, p, hr] = await Promise.all([
-          banksApi.list({ status: 'ACTIVE' }),
-          vendorsApi.list({ status: 'ACTIVE' }),
-          programsApi.list({ status: 'ACTIVE' }),
+          banksApi.list(),
+          vendorsApi.list(),
+          programsApi.list(),
           usersApi.hrReferences(),
         ]);
-        setBanks(b.data || []);
-        setVendors(v.data || []);
-        setPrograms(p.data || []);
+        setBanks((b.data || []).filter((item) => item.status !== 'INACTIVE'));
+        setVendors((v.data || []).filter((item) => item.status !== 'INACTIVE'));
+        setPrograms((p.data || []).filter((item) => item.status !== 'INACTIVE'));
         setHrList(hr.data || []);
       } catch {}
     };
@@ -67,13 +67,34 @@ export const RegisterCandidateModal: React.FC<Props> = ({ isOpen, onClose, onSuc
   }, [isOpen]);
 
   useEffect(() => {
-    if (form.bankId) {
-      setFilteredPrograms(programs.filter((p) => p.bankId === form.bankId || (p.bankId as any)?._id === form.bankId));
-    } else {
+    if (!form.bankId) {
       setFilteredPrograms(programs);
+      return;
     }
+    const selectedBank = banks.find((b) => b._id === form.bankId);
+    const bankNameLower = selectedBank?.name?.toLowerCase().trim() || '';
+
+    // 1. Direct ID match
+    let matched = programs.filter(
+      (p) =>
+        p.bankId === form.bankId ||
+        (p.bankId as any)?._id === form.bankId ||
+        String(p.bankId) === String(form.bankId) ||
+        String((p.bankId as any)?._id) === String(form.bankId)
+    );
+
+    // 2. Fallback to bank name match (e.g. "Axis" matches "Axis Operations", "Axis Retail Lending", etc.)
+    if (matched.length === 0 && bankNameLower) {
+      matched = programs.filter((p) => {
+        const pBankName = (p.bankName || (p.bankId as any)?.name || '').toLowerCase().trim();
+        return pBankName.includes(bankNameLower) || bankNameLower.includes(pBankName);
+      });
+    }
+
+    // 3. Fallback to all programs so dropdown is never blocked
+    setFilteredPrograms(matched.length > 0 ? matched : programs);
     setForm((f) => ({ ...f, programId: '' }));
-  }, [form.bankId, programs]);
+  }, [form.bankId, programs, banks]);
 
   const checkDuplicate = async () => {
     if (!form.email && !form.mobileNumber) return;
@@ -202,7 +223,10 @@ export const RegisterCandidateModal: React.FC<Props> = ({ isOpen, onClose, onSuc
             />
             <Select
               label="Program *"
-              options={filteredPrograms.map((p) => ({ value: p._id, label: p.name }))}
+              options={filteredPrograms.map((p) => ({
+                value: p._id,
+                label: p.bankName ? `${p.name} (${p.bankName})` : p.name,
+              }))}
               value={form.programId}
               onChange={(e) => handleChange('programId', e.target.value)}
               placeholder={form.bankId ? 'Select Program' : 'Select Bank First'}

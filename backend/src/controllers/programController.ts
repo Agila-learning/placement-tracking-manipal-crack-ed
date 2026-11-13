@@ -128,6 +128,8 @@ export const updateProgram = async (req: Request, res: Response): Promise<void> 
   try {
     const { id } = req.params;
     const {
+      bankId,
+      code,
       name,
       designation,
       salaryPackage,
@@ -151,9 +153,26 @@ export const updateProgram = async (req: Request, res: Response): Promise<void> 
 
     const prev = {
       name: program.name,
+      bankName: program.bankName,
       fee: program.enrollmentFeeAmount,
       rounds: program.interviewRoundsConfig,
     };
+
+    if (bankId && String(program.bankId) !== String(bankId)) {
+      const bank = await Bank.findById(bankId);
+      if (bank) {
+        program.bankId = bank._id;
+        program.bankName = bank.name;
+        await Application.updateMany(
+          { programId: program._id },
+          { bankId: bank._id, bankName: bank.name }
+        );
+      }
+    }
+
+    if (code) {
+      program.code = code.trim().toUpperCase();
+    }
 
     if (name) {
       program.name = name.trim();
