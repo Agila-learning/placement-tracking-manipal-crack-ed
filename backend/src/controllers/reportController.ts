@@ -7,12 +7,20 @@ import ExcelJS from 'exceljs';
 import { sendSuccess, sendError } from '../utils/response';
 
 const buildCommonFilter = (query: any) => {
-  const { bank, program, vendor, hr, status, fromDate, toDate, paymentStatus, loanStatus } = query;
+  const { bank, program, vendor, hr, status, fromDate, toDate, paymentStatus, loanStatus, bankId, programId, vendorId, hrId } = query;
   const filter: any = {};
-  if (bank) filter.bankName = { $regex: String(bank), $options: 'i' };
-  if (program) filter.programName = { $regex: String(program), $options: 'i' };
-  if (vendor) filter.vendorName = { $regex: String(vendor), $options: 'i' };
-  if (hr) filter.hrReferenceName = { $regex: String(hr), $options: 'i' };
+  if (bankId) filter.bankId = bankId;
+  else if (bank) filter.bankName = { $regex: String(bank), $options: 'i' };
+
+  if (programId) filter.programId = programId;
+  else if (program) filter.programName = { $regex: String(program), $options: 'i' };
+
+  if (vendorId) filter.vendorId = vendorId;
+  else if (vendor) filter.vendorName = { $regex: String(vendor), $options: 'i' };
+
+  if (hrId) filter.hrReferenceId = hrId;
+  else if (hr) filter.hrReferenceName = { $regex: String(hr), $options: 'i' };
+
   if (status) filter.overallStatus = String(status);
   if (fromDate || toDate) {
     filter.registrationDate = {};

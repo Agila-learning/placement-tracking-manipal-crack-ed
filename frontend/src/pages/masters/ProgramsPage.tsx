@@ -25,7 +25,7 @@ export const ProgramsPage = () => {
 
   const [form, setForm] = useState<any>({
     bankId: '', name: '', code: '', designation: '', salaryPackage: '', location: '',
-    enrollmentFeeAmount: '', paymentTrigger: 'AFTER_SELECTION', isRefundable: true,
+    totalProgramFee: '', enrollmentFeeAmount: '', paymentTrigger: 'AFTER_SELECTION', isRefundable: true,
     loanAvailable: true, campusApplicable: true, batchNumber: '', status: 'ACTIVE',
     interviewRoundsConfig: [...DEFAULT_ROUNDS],
   });
@@ -44,7 +44,12 @@ export const ProgramsPage = () => {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ bankId: '', name: '', code: '', designation: '', salaryPackage: '', location: '', enrollmentFeeAmount: '', paymentTrigger: 'AFTER_SELECTION', isRefundable: true, loanAvailable: true, campusApplicable: true, batchNumber: '', status: 'ACTIVE', interviewRoundsConfig: [...DEFAULT_ROUNDS] });
+    setForm({
+      bankId: '', name: '', code: '', designation: '', salaryPackage: '', location: '',
+      totalProgramFee: '', enrollmentFeeAmount: '', paymentTrigger: 'AFTER_SELECTION', isRefundable: true,
+      loanAvailable: true, campusApplicable: true, batchNumber: '', status: 'ACTIVE',
+      interviewRoundsConfig: [...DEFAULT_ROUNDS],
+    });
     setShowModal(true);
   };
 
@@ -53,7 +58,8 @@ export const ProgramsPage = () => {
     const bankId = p.bankId && typeof p.bankId === 'object' ? (p.bankId as any)._id : (p.bankId || '');
     setForm({
       bankId, name: p.name, code: p.code, designation: p.designation || '', salaryPackage: p.salaryPackage || '',
-      location: p.location || '', enrollmentFeeAmount: String(p.enrollmentFeeAmount || 0),
+      location: p.location || '', totalProgramFee: p.totalProgramFee ? String(p.totalProgramFee) : '',
+      enrollmentFeeAmount: String(p.enrollmentFeeAmount || 0),
       paymentTrigger: p.paymentTrigger, isRefundable: p.isRefundable, loanAvailable: p.loanAvailable,
       campusApplicable: p.campusApplicable, batchNumber: p.batchNumber || '', status: p.status,
       interviewRoundsConfig: p.interviewRoundsConfig?.length ? [...p.interviewRoundsConfig] : [...DEFAULT_ROUNDS],
@@ -66,7 +72,11 @@ export const ProgramsPage = () => {
     if (!form.bankId || !form.name || !form.code) { toast.error('Bank, Name and Code are required.'); return; }
     setSaving(true);
     try {
-      const payload = { ...form, enrollmentFeeAmount: Number(form.enrollmentFeeAmount) || 0 };
+      const payload = {
+        ...form,
+        totalProgramFee: Number(form.totalProgramFee) || 0,
+        enrollmentFeeAmount: Number(form.enrollmentFeeAmount) || 0,
+      };
       if (editing) { await programsApi.update(editing._id, payload); toast.success('Program updated!'); }
       else { await programsApi.create(payload); toast.success('Program created!'); }
       setShowModal(false); load();
@@ -180,7 +190,8 @@ export const ProgramsPage = () => {
             <Input label="Designation" value={form.designation} onChange={e => setForm((f: any) => ({ ...f, designation: e.target.value }))} placeholder="e.g. Sales Advisor" />
             <Input label="Salary Package" value={form.salaryPackage} onChange={e => setForm((f: any) => ({ ...f, salaryPackage: e.target.value }))} placeholder="e.g. 3.5 LPA" />
             <Input label="Location" value={form.location} onChange={e => setForm((f: any) => ({ ...f, location: e.target.value }))} placeholder="e.g. Pan India" />
-            <Input label="Enrollment Fee (₹)" type="number" value={form.enrollmentFeeAmount} onChange={e => setForm((f: any) => ({ ...f, enrollmentFeeAmount: e.target.value }))} placeholder="0" />
+            <Input label="Total Program Fee (₹)" type="number" value={form.totalProgramFee} onChange={e => setForm((f: any) => ({ ...f, totalProgramFee: e.target.value }))} placeholder="e.g. 250000" />
+            <Input label="Enrollment / Initial Fee (₹)" type="number" value={form.enrollmentFeeAmount} onChange={e => setForm((f: any) => ({ ...f, enrollmentFeeAmount: e.target.value }))} placeholder="0" />
             <Select label="Payment Trigger" options={[{ value: 'AFTER_SELECTION', label: 'After Selection' }, { value: 'BEFORE_INTERVIEW', label: 'Before Interview' }]}
               value={form.paymentTrigger} onChange={e => setForm((f: any) => ({ ...f, paymentTrigger: e.target.value }))} />
             <Input label="Batch Number" value={form.batchNumber} onChange={e => setForm((f: any) => ({ ...f, batchNumber: e.target.value }))} placeholder="Optional batch" />

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, User, Calendar, FileText, CreditCard, Building2,
-  Activity, MapPin, Phone, Mail, Edit2, AlertCircle, CheckCircle, ShieldCheck, RefreshCw, Trash2
+  Activity, MapPin, Phone, Mail, Edit2, AlertCircle, CheckCircle, ShieldCheck, RefreshCw, Trash2, Plus
 } from 'lucide-react';
 import { applicationsApi, banksApi, programsApi, vendorsApi, usersApi } from '../../api/endpoints';
 import { BASE_URL } from '../../api/client';
@@ -57,9 +57,25 @@ export const CandidateDetailPage = () => {
   const [paymentForm, setPaymentForm] = useState({ transactionId: '', amount: '', paymentMode: 'UPI', paymentDate: '', referenceNotes: '', paymentStatus: '' });
   const [paymentLoading, setPaymentLoading] = useState(false);
 
-  // Enrollment Fee Edit Modal
+  // Program Fee & Installments Edit Modal
   const [showFeeModal, setShowFeeModal] = useState(false);
-  const [feeForm, setFeeForm] = useState({ enrollmentFeeAmount: '', remarks: '' });
+  const [feeForm, setFeeForm] = useState<{
+    totalProgramFee: string;
+    enrollmentFeeAmount: string;
+    installments: Array<{
+      installmentNumber: number;
+      name: string;
+      amount: string;
+      dueDate?: string;
+      remarks?: string;
+    }>;
+    remarks: string;
+  }>({
+    totalProgramFee: '',
+    enrollmentFeeAmount: '',
+    installments: [],
+    remarks: '',
+  });
   const [feeLoading, setFeeLoading] = useState(false);
 
   // Commission Modal
@@ -85,6 +101,7 @@ export const CandidateDetailPage = () => {
   const [hrList, setHrList] = useState<UserType[]>([]);
   const [filteredEditPrograms, setFilteredEditPrograms] = useState<Program[]>([]);
   const [detailsForm, setDetailsForm] = useState({
+    applicationNumber: '',
     fullName: '',
     email: '',
     mobileNumber: '',
@@ -248,6 +265,7 @@ export const CandidateDetailPage = () => {
         : '';
 
       setDetailsForm({
+        applicationNumber: application.applicationNumber || '',
         fullName: application.candidateName || '',
         email: application.candidateEmail || '',
         mobileNumber: application.candidateMobile || (cand as any)?.mobileNumber || '',
@@ -446,19 +464,154 @@ export const CandidateDetailPage = () => {
     }
   };
 
-  const handleFeeUpdate = async () => {
-    if (!id || !feeForm.enrollmentFeeAmount) {
-      toast.error('Please enter a valid fee amount.');
-      return;
+  const openFeeModal = () => {
+    const payment = a.payment;
+    const enrollAmount = payment?.enrollmentFeeAmount || 0;
+    const totalFee = payment?.totalProgramFee || enrollAmount || 0;
+
+    let initialInstallments = payment?.installments?.map((inst, idx) => ({
+      installmentNumber: inst.installmentNumber || idx + 1,
+      name: inst.name || `Installment ${idx + 1}`,
+      amount: String(inst.amount || 0),
+      dueDate: inst.dueDate ? inst.dueDate.substring(0, 10) : '',
+      remarks: inst.remarks || '',
+    })) || [];
+
+    if (initialInstallments.length === 0) {
+      initialInstallments = [
+        {
+          installmentNumber: 1,
+          name: 'Installment 1 (Enrollment Fee)',
+          amount: String(enrollAmount),
+          dueDate: '',
+          remarks: 'Admission / Seat booking',
+        },
+      ];
+      if (totalFee > enrollAmount) {
+        initialInstallments.push({
+          installmentNumber: 2,
+          name: 'Installment 2',
+          amount: String(totalFee - enrollAmount),
+          dueDate: '',
+          remarks: 'Remaining balance',
+        });
+      }
     }
+
+    setFeeForm({
+      totalProgramFee: String(totalFee),
+      enrollmentFeeAmount: String(enrollAmount),
+      installments: initialInstallments,
+      remarks: payment?.notes || '',
+    });
+    setShowFeeModal(true);
+  };
+
+  const addFeeInstallment = () => {
+    setFeeForm((prev) => {
+      const nextNum = prev.installments.length + 1;
+      return {
+        ...prev,
+        installments: [
+          ...prev.installments,
+          {
+            installmentNumber: nextNum,
+            name: `Installment ${nextNum}`,
+            amount: '0',
+            dueDate: '',
+            remarks: '',
+          },
+        ],
+      };
+    });
+  };
+
+  const removeFeeInstallment = (idx: number) => {
+    setFeeForm((prev) => ({
+      ...prev,
+      installments: prev.installments.filter((_, i) => i !== idx),
+    }));
+  };
+
+  const updateFeeInstallment = (idx: number, field: string, val: string) => {
+    setFeeForm((prev) => {
+      const nextInsts = [...prev.installments];
+      nextInsts[idx] = { ...nextInsts[idx], [field]: val };
+      return { ...prev, installments: nextInsts };
+    });
+  };
+
+  const autoBalanceInstallments = () => {
+    const total = Number(feeForm.totalProgramFee) || 0;
+    const enroll = Number(feeForm.enrollmentFeeAmount) || 0;
+    if (total <= 0) return;
+
+    if (feeForm.installments.length <= 1) {
+      setFeeForm((prev) => ({
+        ...prev,
+        installments: [
+          {
+            installmentNumber: 1,
+            name: 'Installment 1 (Enrollment Fee)',
+            amount: String(enroll),
+            dueDate: '',
+            remarks: 'Admission / Seat booking',
+          },
+          {
+            installmentNumber: 2,
+            name: 'Installment 2',
+            amount: String(Math.max(0, total - enroll)),
+            dueDate: '',
+            remarks: 'Tuition / Term balance',
+          },
+        ],
+      }));
+    } else {
+      const remaining = Math.max(0, total - enroll);
+      const otherCount = feeForm.installments.length - 1;
+      const perOther = Math.floor(remaining / otherCount);
+      const remainder = remaining % otherCount;
+
+      setFeeForm((prev) => {
+        const nextInsts = prev.installments.map((inst, i) => {
+          if (i === 0) {
+            return { ...inst, amount: String(enroll) };
+          }
+          const addAmt = i === 1 ? perOther + remainder : perOther;
+          return { ...inst, amount: String(addAmt) };
+        });
+        return { ...prev, installments: nextInsts };
+      });
+    }
+  };
+
+  const handleFeeUpdate = async () => {
+    if (!id) return;
     setFeeLoading(true);
     try {
-      await applicationsApi.updateEnrollmentFee(id, feeForm);
-      toast.success('Enrollment fee updated!');
+      const totalFeeNum = Number(feeForm.totalProgramFee) || Number(feeForm.enrollmentFeeAmount) || 0;
+      const enrollFeeNum = Number(feeForm.enrollmentFeeAmount) || 0;
+
+      const payload = {
+        totalProgramFee: totalFeeNum,
+        enrollmentFeeAmount: enrollFeeNum,
+        installments: feeForm.installments.map((inst, idx) => ({
+          installmentNumber: idx + 1,
+          name: inst.name.trim() || `Installment ${idx + 1}`,
+          amount: Number(inst.amount) || 0,
+          dueDate: inst.dueDate || undefined,
+          remarks: inst.remarks || '',
+        })),
+        remarks: feeForm.remarks,
+      };
+
+      await applicationsApi.updateEnrollmentFee(id, payload);
+      toast.success('Program fee and installments updated successfully!');
       setShowFeeModal(false);
-      await load();
+      window.dispatchEvent(new Event('fic:stats-refresh'));
+      await load(false);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to update enrollment fee.');
+      toast.error(err.message || 'Failed to update program fee.');
     } finally {
       setFeeLoading(false);
     }
@@ -569,8 +722,18 @@ export const CandidateDetailPage = () => {
           <div>
             <h1 className="text-lg sm:text-xl font-bold text-fic-navy leading-tight">{a.candidateName}</h1>
             <div className="flex items-center gap-2 sm:gap-3 mt-1 flex-wrap">
-              <span className="font-mono text-xs bg-blue-50 text-fic-navy px-2 py-0.5 rounded">
+              <span className="font-mono text-xs bg-blue-50 text-fic-navy px-2 py-0.5 rounded inline-flex items-center gap-1.5 border border-blue-200">
                 {a.applicationNumber}
+                {hasRole('SUPER_ADMIN', 'ADMIN', 'HR_EXECUTIVE') && (
+                  <button
+                    type="button"
+                    onClick={openEditDetailsModal}
+                    className="text-blue-500 hover:text-blue-700 hover:bg-blue-100/60 p-0.5 rounded transition-colors"
+                    title="Edit Application Number"
+                  >
+                    <Edit2 className="w-3 h-3" />
+                  </button>
+                )}
               </span>
               <Badge className={appStatusBadge[a.overallStatus]}>{a.overallStatus}</Badge>
               <span className="text-xs text-slate-400">Reg: {formatDate(a.registrationDate)}</span>
@@ -783,19 +946,87 @@ export const CandidateDetailPage = () => {
             <div className="space-y-4">
               {a.payment && (
                 <>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                     {[
-                      { label: 'Route', value: paymentRouteLabel[a.payment.paymentRoute] },
-                      { label: 'Fee Amount', value: formatCurrency(a.payment.enrollmentFeeAmount) },
-                      { label: 'Amount Paid', value: formatCurrency(a.payment.amountPaid) },
-                      { label: 'Balance', value: formatCurrency(a.payment.balanceAmount) },
+                      { label: 'Payment Route', value: paymentRouteLabel[a.payment.paymentRoute] },
+                      { label: 'Total Program Fee', value: formatCurrency(a.payment.totalProgramFee || a.payment.enrollmentFeeAmount) },
+                      { label: 'Enrollment Fee', value: formatCurrency(a.payment.enrollmentFeeAmount) },
+                      { label: 'Total Paid', value: formatCurrency(a.payment.amountPaid), textClass: 'text-emerald-700' },
+                      {
+                        label: 'Total Balance',
+                        value: formatCurrency(
+                          a.payment.totalProgramFee
+                            ? Math.max(0, a.payment.totalProgramFee - a.payment.amountPaid)
+                            : a.payment.balanceAmount
+                        ),
+                        textClass: 'text-amber-700',
+                      },
                     ].map((item) => (
-                      <div key={item.label} className="bg-slate-50 rounded-lg p-3">
-                        <div className="text-xs text-slate-400">{item.label}</div>
-                        <div className="text-sm font-bold text-slate-800">{item.value}</div>
+                      <div key={item.label} className="bg-slate-50 border border-slate-200/80 rounded-xl p-3">
+                        <div className="text-[11px] font-medium text-slate-400">{item.label}</div>
+                        <div className={`text-sm font-bold text-slate-800 mt-0.5 ${item.textClass || ''}`}>{item.value}</div>
                       </div>
                     ))}
                   </div>
+
+                  {/* Installments Breakdown Table */}
+                  {a.payment.installments && a.payment.installments.length > 0 && (
+                    <div className="bg-white rounded-xl border border-fic-border p-3.5 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-fic-navy" />
+                          Installment Schedule
+                        </h4>
+                        <span className="text-xs text-slate-500 font-medium">
+                          {a.payment.installments.length} installment{a.payment.installments.length !== 1 ? 's' : ''} configured
+                        </span>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="fic-table text-xs">
+                          <thead>
+                            <tr>
+                              <th className="fic-table-header">#</th>
+                              <th className="fic-table-header">Installment Name</th>
+                              <th className="fic-table-header text-right">Due Amount</th>
+                              <th className="fic-table-header text-right">Paid Amount</th>
+                              <th className="fic-table-header text-right">Balance</th>
+                              <th className="fic-table-header">Due Date</th>
+                              <th className="fic-table-header">Status</th>
+                              <th className="fic-table-header">Notes</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {a.payment.installments.map((inst, idx) => {
+                              const instBal = Math.max(0, (inst.amount || 0) - (inst.paidAmount || 0));
+                              return (
+                                <tr key={idx} className="hover:bg-slate-50">
+                                  <td className="fic-table-cell font-mono text-slate-400">{inst.installmentNumber || idx + 1}</td>
+                                  <td className="fic-table-cell font-medium text-slate-800">{inst.name}</td>
+                                  <td className="fic-table-cell text-right font-semibold text-slate-800">{formatCurrency(inst.amount)}</td>
+                                  <td className="fic-table-cell text-right font-semibold text-emerald-600">{formatCurrency(inst.paidAmount || 0)}</td>
+                                  <td className="fic-table-cell text-right font-medium text-slate-600">{formatCurrency(instBal)}</td>
+                                  <td className="fic-table-cell text-slate-500">{inst.dueDate ? formatDate(inst.dueDate) : '-'}</td>
+                                  <td className="fic-table-cell">
+                                    <Badge className={
+                                      inst.status === 'Paid'
+                                        ? 'bg-emerald-100 text-emerald-800'
+                                        : inst.status === 'Partially Paid'
+                                        ? 'bg-blue-100 text-blue-800'
+                                        : 'bg-amber-100 text-amber-800'
+                                    }>
+                                      {inst.status || 'Pending'}
+                                    </Badge>
+                                  </td>
+                                  <td className="fic-table-cell text-slate-400 italic">{inst.remarks || '-'}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <Badge className={paymentStatusBadge[a.payment.paymentStatus]}>{a.payment.paymentStatus}</Badge>
                     <div className="flex gap-2 flex-wrap items-center">
@@ -807,13 +1038,17 @@ export const CandidateDetailPage = () => {
                             leftIcon={<RefreshCw className={`w-3.5 h-3.5 ${syncingFee ? 'animate-spin' : ''}`} />}
                             onClick={handleSyncProgramFee}
                             disabled={syncingFee}
-                            title="Update candidate enrollment fee to match the latest program fee from Masters"
+                            title="Update candidate enrollment and program fee to match the latest from Program Master"
                           >
                             {syncingFee ? 'Syncing…' : 'Sync from Program'}
                           </Button>
-                          <Button size="sm" variant="secondary" leftIcon={<Edit2 className="w-3.5 h-3.5" />}
-                            onClick={() => { setFeeForm({ enrollmentFeeAmount: String(a.payment!.enrollmentFeeAmount), remarks: '' }); setShowFeeModal(true); }}>
-                            Edit Fee
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            leftIcon={<Edit2 className="w-3.5 h-3.5" />}
+                            onClick={openFeeModal}
+                          >
+                            Edit Fee & Installments
                           </Button>
                         </>
                       )}
@@ -1469,27 +1704,214 @@ export const CandidateDetailPage = () => {
           </div>
         </div>
       </Modal>
-      {/* Fee Edit Modal */}
-      <Modal isOpen={showFeeModal} onClose={() => setShowFeeModal(false)} title="Edit Enrollment Fee">
-        <div className="space-y-4">
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
-            Changing the fee will auto-recalculate the balance and payment status.
+      {/* Program Fee & Installments Edit Modal */}
+      <Modal
+        isOpen={showFeeModal}
+        onClose={() => setShowFeeModal(false)}
+        title="Edit Program Fee & Installments"
+        size="2xl"
+      >
+        <div className="space-y-4 max-h-[80vh] overflow-y-auto pr-1">
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-900 leading-relaxed">
+            Configure the <strong>Total Program Fee</strong>, <strong>Enrollment / Booking Fee</strong>, and customizable <strong>Installments Schedule</strong> for this candidate. Balances and payment statuses are automatically recalculated.
           </div>
-          <div>
-            <label className="fic-label">New Enrollment Fee (₹) *</label>
-            <input type="number" className="fic-input" placeholder="Enter fee amount"
-              value={feeForm.enrollmentFeeAmount}
-              onChange={(e) => setFeeForm({ ...feeForm, enrollmentFeeAmount: e.target.value })} />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="fic-label">Total Program Fee (₹) *</label>
+              <input
+                type="number"
+                className="fic-input font-semibold text-slate-800"
+                placeholder="e.g. 250000"
+                value={feeForm.totalProgramFee}
+                onChange={(e) => setFeeForm({ ...feeForm, totalProgramFee: e.target.value })}
+              />
+              <p className="text-[11px] text-slate-400 mt-1">Full overall cost of the training program</p>
+            </div>
+            <div>
+              <label className="fic-label">Enrollment / Booking Fee (₹) *</label>
+              <input
+                type="number"
+                className="fic-input font-semibold text-slate-800"
+                placeholder="e.g. 20000"
+                value={feeForm.enrollmentFeeAmount}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setFeeForm((prev) => {
+                    const nextInsts = [...prev.installments];
+                    if (nextInsts.length > 0) {
+                      nextInsts[0] = { ...nextInsts[0], amount: val };
+                    }
+                    return { ...prev, enrollmentFeeAmount: val, installments: nextInsts };
+                  });
+                }}
+              />
+              <p className="text-[11px] text-slate-400 mt-1">Initial fee required to confirm admission</p>
+            </div>
           </div>
+
+          {/* Installments Schedule Section */}
+          <div className="border border-slate-200 rounded-xl p-3.5 bg-slate-50/50 space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-fic-navy" />
+                  Installment Breakdown ({feeForm.installments.length})
+                </h4>
+                <p className="text-[11px] text-slate-500">
+                  Add or customize installment amounts and due dates
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="text-xs"
+                  onClick={autoBalanceInstallments}
+                >
+                  Auto-Balance
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  leftIcon={<Plus className="w-3.5 h-3.5" />}
+                  onClick={addFeeInstallment}
+                >
+                  Add Installment
+                </Button>
+              </div>
+            </div>
+
+            {/* Installments List */}
+            <div className="space-y-2">
+              {feeForm.installments.map((inst, idx) => (
+                <div
+                  key={idx}
+                  className="grid grid-cols-1 sm:grid-cols-12 gap-2 bg-white p-2.5 rounded-lg border border-slate-200 items-center text-xs"
+                >
+                  <div className="sm:col-span-1 text-slate-400 font-mono font-medium text-center">
+                    #{idx + 1}
+                  </div>
+                  <div className="sm:col-span-4">
+                    <input
+                      type="text"
+                      className="fic-input text-xs h-8"
+                      placeholder="Installment Name"
+                      value={inst.name}
+                      onChange={(e) => updateFeeInstallment(idx, 'name', e.target.value)}
+                    />
+                  </div>
+                  <div className="sm:col-span-3">
+                    <input
+                      type="number"
+                      className="fic-input text-xs h-8 font-semibold"
+                      placeholder="Amount (₹)"
+                      value={inst.amount}
+                      onChange={(e) => updateFeeInstallment(idx, 'amount', e.target.value)}
+                    />
+                  </div>
+                  <div className="sm:col-span-3">
+                    <input
+                      type="date"
+                      className="fic-input text-xs h-8"
+                      value={inst.dueDate || ''}
+                      onChange={(e) => updateFeeInstallment(idx, 'dueDate', e.target.value)}
+                    />
+                  </div>
+                  <div className="sm:col-span-1 flex justify-center">
+                    {feeForm.installments.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeFeeInstallment(idx)}
+                        className="text-red-400 hover:text-red-600 p-1 rounded hover:bg-red-50 transition-colors"
+                        title="Delete installment"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="sm:col-span-12">
+                    <input
+                      type="text"
+                      className="fic-input text-[11px] h-7 text-slate-500"
+                      placeholder="Installment notes (e.g. Paid via Loan, Post-Selection, etc.)"
+                      value={inst.remarks || ''}
+                      onChange={(e) => updateFeeInstallment(idx, 'remarks', e.target.value)}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Reconciliation Bar */}
+            {(() => {
+              const sumInstallments = feeForm.installments.reduce(
+                (acc, curr) => acc + (Number(curr.amount) || 0),
+                0
+              );
+              const totalProgFee = Number(feeForm.totalProgramFee) || 0;
+              const diff = totalProgFee - sumInstallments;
+              const isMatch = Math.abs(diff) === 0;
+
+              return (
+                <div
+                  className={`flex flex-col sm:flex-row sm:items-center justify-between p-2.5 rounded-lg border text-xs gap-2 ${
+                    isMatch
+                      ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
+                      : 'bg-amber-50/70 border-amber-200 text-amber-900'
+                  }`}
+                >
+                  <div>
+                    <span className="font-semibold">Sum of Installments: </span>
+                    <span className="font-bold">₹{sumInstallments.toLocaleString('en-IN')}</span>
+                    <span className="text-slate-400 mx-2">|</span>
+                    <span className="font-semibold">Total Program Fee: </span>
+                    <span className="font-bold">₹{totalProgFee.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex items-center gap-2 font-medium">
+                    {isMatch ? (
+                      <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                        <CheckCircle className="w-3.5 h-3.5" /> Installments Match Program Fee
+                      </span>
+                    ) : (
+                      <>
+                        <span className="text-amber-800">
+                          Difference: ₹{Math.abs(diff).toLocaleString('en-IN')} {diff > 0 ? 'unallocated' : 'exceeds total'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setFeeForm({ ...feeForm, totalProgramFee: String(sumInstallments) })}
+                          className="text-[11px] underline text-blue-700 hover:text-blue-900 font-medium"
+                        >
+                          Match Total
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
           <div>
-            <label className="fic-label">Remarks (Optional)</label>
-            <input className="fic-input" placeholder="Reason for fee change..."
+            <label className="fic-label">Remarks / Change Reason (Optional)</label>
+            <input
+              className="fic-input"
+              placeholder="e.g. Scholarship waiver, revised program cost, restructured installment schedule..."
               value={feeForm.remarks}
-              onChange={(e) => setFeeForm({ ...feeForm, remarks: e.target.value })} />
+              onChange={(e) => setFeeForm({ ...feeForm, remarks: e.target.value })}
+            />
           </div>
-          <div className="flex gap-3">
-            <Button variant="secondary" className="flex-1" onClick={() => setShowFeeModal(false)}>Cancel</Button>
-            <Button className="flex-1" isLoading={feeLoading} onClick={handleFeeUpdate}>Update Fee</Button>
+
+          <div className="flex gap-3 pt-2 border-t border-slate-200">
+            <Button variant="secondary" className="flex-1" onClick={() => setShowFeeModal(false)}>
+              Cancel
+            </Button>
+            <Button className="flex-1" isLoading={feeLoading} onClick={handleFeeUpdate}>
+              Save Program Fee & Installments
+            </Button>
           </div>
         </div>
       </Modal>
@@ -1633,6 +2055,21 @@ export const CandidateDetailPage = () => {
               1. Candidate Information
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="sm:col-span-2">
+                <label className="fic-label">Application Number *</label>
+                <input
+                  type="text"
+                  className="fic-input font-mono uppercase font-semibold text-fic-navy"
+                  value={detailsForm.applicationNumber}
+                  onChange={(e) => setDetailsForm({ ...detailsForm, applicationNumber: e.target.value.toUpperCase() })}
+                  placeholder="e.g. ABCP-125027 or FIC-202611-ABCD"
+                  required
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Unique application identifier. Updating this will update all interview rounds, payments, loans, and campus records.
+                </p>
+              </div>
+
               <div>
                 <label className="fic-label">Candidate Full Name *</label>
                 <input

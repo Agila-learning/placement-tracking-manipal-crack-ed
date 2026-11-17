@@ -28,6 +28,20 @@ export interface IPaymentTransaction {
   createdAt: Date;
 }
 
+export interface IInstallment {
+  _id?: Types.ObjectId;
+  installmentNumber: number;
+  name: string;
+  amount: number;
+  dueDate?: Date;
+  paidAmount: number;
+  status: 'Pending' | 'Partially Paid' | 'Paid';
+  paymentDate?: Date;
+  receiptNumber?: string;
+  transactionReference?: string;
+  remarks?: string;
+}
+
 export interface IRefundDetails {
   isRefundable: boolean;
   refundAmount: number;
@@ -46,11 +60,14 @@ export interface IPayment extends Document {
   applicationNumber: string;
   candidateName: string;
   paymentRoute: PaymentRoute;
+  totalProgramFee?: number;
+  totalProgramFeeBalance?: number;
   enrollmentFeeAmount: number;
   amountPaid: number;
   balanceAmount: number;
   paymentStatus: PaymentStatus;
   paymentTrigger: 'BEFORE_INTERVIEW' | 'AFTER_SELECTION';
+  installments?: IInstallment[];
   transactions: IPaymentTransaction[];
   refund: IRefundDetails;
   notes?: string;
@@ -77,6 +94,26 @@ const PaymentTransactionSchema = new Schema<IPaymentTransaction>(
     verifiedByName: { type: String },
     verifiedAt: { type: Date },
     createdAt: { type: Date, default: Date.now },
+  },
+  { _id: true }
+);
+
+const InstallmentSchema = new Schema<IInstallment>(
+  {
+    installmentNumber: { type: Number, required: true },
+    name: { type: String, required: true, trim: true },
+    amount: { type: Number, required: true, min: 0, default: 0 },
+    dueDate: { type: Date },
+    paidAmount: { type: Number, default: 0, min: 0 },
+    status: {
+      type: String,
+      enum: ['Pending', 'Partially Paid', 'Paid'],
+      default: 'Pending',
+    },
+    paymentDate: { type: Date },
+    receiptNumber: { type: String, trim: true },
+    transactionReference: { type: String, trim: true },
+    remarks: { type: String, trim: true },
   },
   { _id: true }
 );
@@ -130,11 +167,22 @@ const PaymentSchema = new Schema<IPayment>(
       required: true,
       index: true,
     },
+    totalProgramFee: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    totalProgramFeeBalance: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     enrollmentFeeAmount: {
       type: Number,
       required: true,
       min: 0,
     },
+    installments: [InstallmentSchema],
     amountPaid: {
       type: Number,
       default: 0,

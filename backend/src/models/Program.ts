@@ -11,6 +11,14 @@ export interface IInterviewRoundConfig {
 
 export type PaymentTrigger = 'BEFORE_INTERVIEW' | 'AFTER_SELECTION';
 
+export interface IProgramInstallmentConfig {
+  installmentNumber: number;
+  name: string;
+  amount: number;
+  dueDays?: number; // Days after registration or selection
+  remarks?: string;
+}
+
 export interface IProgram extends Document {
   bankId: Types.ObjectId;
   bankName: string;
@@ -21,7 +29,9 @@ export interface IProgram extends Document {
   location?: string;
   vendorAvailability: string[]; // Vendor IDs or Names e.g. ["Manipal", "Crack-ed"]
   interviewRoundsConfig: IInterviewRoundConfig[];
+  totalProgramFee?: number;
   enrollmentFeeAmount: number;
+  installmentsConfig?: IProgramInstallmentConfig[];
   paymentTrigger: PaymentTrigger;
   isRefundable: boolean;
   loanAvailable: boolean;
@@ -99,12 +109,26 @@ const ProgramSchema = new Schema<IProgram>(
         { roundId: 'r_mock', roundName: 'Mock', isMandatory: false, order: 3, defaultMode: 'Online' },
       ],
     },
+    totalProgramFee: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     enrollmentFeeAmount: {
       type: Number,
       required: true,
       default: 0,
       min: 0,
     },
+    installmentsConfig: [
+      {
+        installmentNumber: { type: Number, required: true },
+        name: { type: String, required: true },
+        amount: { type: Number, required: true, default: 0 },
+        dueDays: { type: Number },
+        remarks: { type: String },
+      },
+    ],
     paymentTrigger: {
       type: String,
       enum: ['BEFORE_INTERVIEW', 'AFTER_SELECTION'],

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { Download, BarChart2, FileText } from 'lucide-react';
-import { reportsApi } from '../../api/endpoints';
-import { Application, ALL_APPLICATION_STATUSES } from '../../types';
+import React, { useState, useEffect } from 'react';
+import { Download, BarChart2, FileText, Filter, RefreshCw } from 'lucide-react';
+import { reportsApi, banksApi, programsApi, vendorsApi, usersApi } from '../../api/endpoints';
+import { Application, Bank, Program, Vendor, User, ALL_APPLICATION_STATUSES } from '../../types';
 import { Button, Badge, EmptyState, LoadingSpinner, PageHeader } from '../../components/ui';
 import { appStatusBadge, interviewStatusBadge, paymentStatusBadge, loanStatusBadge, formatDate, formatCurrency } from '../../utils/statusHelpers';
 import { useToast } from '../../contexts/ToastContext';
@@ -13,9 +13,43 @@ export const ReportsPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
 
+  // Master dropdown data
+  const [banks, setBanks] = useState<Bank[]>([]);
+  const [programs, setPrograms] = useState<Program[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [hrList, setHrList] = useState<User[]>([]);
+
   const [filters, setFilters] = useState({
     bank: '', program: '', vendor: '', hr: '', status: '', fromDate: '', toDate: '', paymentStatus: '', loanStatus: '',
   });
+
+  useEffect(() => {
+    const loadMasters = async () => {
+      try {
+        const [b, p, v, hr] = await Promise.all([
+          banksApi.list({ status: 'ACTIVE' }),
+          programsApi.list({ status: 'ACTIVE' }),
+          vendorsApi.list({ status: 'ACTIVE' }),
+          usersApi.hrReferences(),
+        ]);
+        setBanks(b.data || []);
+        setPrograms(p.data || []);
+        setVendors(v.data || []);
+        setHrList(hr.data || []);
+      } catch {
+        // Silently catch
+      }
+    };
+    loadMasters();
+  }, []);
+
+  const filteredPrograms = filters.bank
+    ? programs.filter(
+        (p) =>
+          p.bankName?.toLowerCase() === filters.bank.toLowerCase() ||
+          (p.bankId as any)?.name?.toLowerCase() === filters.bank.toLowerCase()
+      )
+    : programs;
 
   const setFilter = (key: string, value: string) => setFilters(f => ({ ...f, [key]: value }));
 
@@ -77,10 +111,65 @@ export const ReportsPage = () => {
       {/* Filters */}
       <div className="bg-white rounded-xl border border-fic-border p-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          <input className="fic-input text-sm h-9" placeholder="Bank" value={filters.bank} onChange={e => setFilter('bank', e.target.value)} />
-          <input className="fic-input text-sm h-9" placeholder="Program" value={filters.program} onChange={e => setFilter('program', e.target.value)} />
-          <input className="fic-input text-sm h-9" placeholder="Vendor" value={filters.vendor} onChange={e => setFilter('vendor', e.target.value)} />
-          <input className="fic-input text-sm h-9" placeholder="HR Reference" value={filters.hr} onChange={e => setFilter('hr', e.target.value)} />
+          {/* Bank Dropdown */}
+          <select
+            className="fic-input text-sm h-9"
+            value={filters.bank}
+            onChange={(e) => {
+              setFilter('bank', e.target.value);
+              setFilter('program', ''); // Reset program on bank change
+            }}
+          >
+            <option value="">All Banks</option>
+            {banks.map((b) => (
+              <option key={b._id} value={b.name}>
+                {b.name}
+              </option>
+            ))}
+          </select>
+
+          {/* Program Dropdown */}
+          <select
+            className="fic-input text-sm h-9"
+            value={filters.program}
+            onChange={(e) => setFilter('program', e.target.value)}
+          >
+            <option value="">All Programs</option>
+            {filteredPrograms.map((p) => (
+              <option key={p._id} value={p.name}>
+                {p.name} {p.bankName ? `(${p.bankName})` : ''}
+              </option>
+            ))}
+          </select>
+
+          {/* Vendor Dropdown */}
+          <select
+            className="fic-input text-sm h-9"
+            value={filters.vendor}
+            onChange={(e) => setFilter('vendor', e.target.value)}
+          >
+            <option value="">All Vendors</option>
+            {vendors.map((v) => (
+              <option key={v._id} value={v.name}>
+                {v.name}
+              </option>
+            ))}
+          </select>
+
+          {/* HR Reference Dropdown */}
+          <select
+            className="fic-input text-sm h-9"
+            value={filters.hr}
+            onChange={(e) => setFilter('hr', e.target.value)}
+          >
+            <option value="">All HR References</option>
+            {hrList.map((u) => (
+              <option key={u.id || u._id || u.name} value={u.name}>
+                {u.name} {u.employeeId ? `(${u.employeeId})` : ''}
+              </option>
+            ))}
+          </select>
+
           <select className="fic-input text-sm h-9" value={filters.status} onChange={e => setFilter('status', e.target.value)}>
             <option value="">All App. Statuses</option>
             {ALL_APPLICATION_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}

@@ -651,6 +651,7 @@ export const updateCandidateAndApplicationDetails = async (req: Request, res: Re
   try {
     const { id } = req.params;
     const {
+      applicationNumber,
       fullName,
       email,
       mobileNumber,
@@ -672,6 +673,30 @@ export const updateCandidateAndApplicationDetails = async (req: Request, res: Re
     if (!application) {
       sendError(res, 'Application not found.', 404);
       return;
+    }
+
+    const oldAppNum = application.applicationNumber;
+    let newAppNum = oldAppNum;
+
+    // Validate and update applicationNumber if provided
+    if (applicationNumber && typeof applicationNumber === 'string') {
+      const cleanAppNum = applicationNumber.trim().toUpperCase();
+      if (cleanAppNum && cleanAppNum !== oldAppNum) {
+        const existing = await Application.findOne({
+          applicationNumber: cleanAppNum,
+          _id: { $ne: application._id },
+        });
+        if (existing) {
+          sendError(
+            res,
+            `Application number "${cleanAppNum}" is already assigned to ${existing.candidateName}.`,
+            409
+          );
+          return;
+        }
+        newAppNum = cleanAppNum;
+        application.applicationNumber = cleanAppNum;
+      }
     }
 
     // Check if new mobile or email duplicates another candidate
@@ -793,6 +818,30 @@ export const updateCandidateAndApplicationDetails = async (req: Request, res: Re
         }
         await candidate.save();
       }
+    }
+
+    // If applicationNumber changed, propagate to related collections
+    if (newAppNum !== oldAppNum) {
+      await Promise.all([
+        Payment.updateMany(
+          { applicationId: application._id },
+          { $set: { applicationNumber: newAppNum, candidateName: application.candidateName } }
+        ),
+        LoanStatus.updateMany(
+          { applicationId: application._id },
+          { $set: { applicationNumber: newAppNum } }
+        ),
+        CampusStatus.updateMany(
+          { applicationId: application._id },
+          { $set: { applicationNumber: newAppNum } }
+        ),
+      ]);
+
+      const { ActivityLog } = await import('../models/ActivityLog');
+      await ActivityLog.updateMany(
+        { $or: [{ applicationNumber: oldAppNum }, { entityId: oldAppNum }] },
+        { $set: { applicationNumber: newAppNum } }
+      );
     }
 
     await logActivity({
@@ -1325,16 +1374,11 @@ export const getApplicationActivityLogs = async (req: Request, res: Response): P
   }
 };
 
-// ---- UPDATE ENROLLMENT FEE ----
+// ---- UPDATE ENROLLMENT & PROGRAM FEE WITH INSTALLMENTS ----
 export const updateEnrollmentFee = async (req: Request, res: Response): Promise<void> => {
   try {
     const { applicationId } = req.params;
-    const { enrollmentFeeAmount, remarks } = req.body;
-
-    if (!enrollmentFeeAmount || isNaN(Number(enrollmentFeeAmount)) || Number(enrollmentFeeAmount) <= 0) {
-      sendError(res, 'Valid enrollment fee amount is required.', 400);
-      return;
-    }
+    const { enrollmentFeeAmount, totalProgramFee, installments, remarks } = req.body;
 
     const payment = await Payment.findOne({ applicationId });
     if (!payment) {
@@ -1343,13 +1387,68 @@ export const updateEnrollmentFee = async (req: Request, res: Response): Promise<
     }
 
     const previousFee = payment.enrollmentFeeAmount;
-    const newFee = Number(enrollmentFeeAmount);
+    const previousTotalFee = payment.totalProgramFee || 0;
 
-    payment.enrollmentFeeAmount = newFee;
-    payment.balanceAmount = Math.max(0, newFee - payment.amountPaid);
+    if (totalProgramFee !== undefined && !isNaN(Number(totalProgramFee))) {
+      payment.totalProgramFee = Math.max(0, Number(totalProgramFee));
+    }
 
-    // Auto-update payment status based on new fee
-    if (payment.amountPaid >= newFee) {
+    if (enrollmentFeeAmount !== undefined && !isNaN(Number(enrollmentFeeAmount))) {
+      payment.enrollmentFeeAmount = Math.max(0, Number(enrollmentFeeAmount));
+    }
+
+    // Process installments if passed
+    if (Array.isArray(installments)) {
+      let runningPaid = payment.amountPaid || 0;
+      payment.installments = installments.map((inst: any, idx: number) => {
+        const instAmount = Math.max(0, Number(inst.amount) || 0);
+        let instPaid = 0;
+        if (inst.paidAmount !== undefined && inst.paidAmount !== null && !isNaN(Number(inst.paidAmount))) {
+          instPaid = Number(inst.paidAmount);
+        } else {
+          instPaid = Math.min(instAmount, runningPaid);
+          runningPaid = Math.max(0, runningPaid - instPaid);
+        }
+        let status: 'Pending' | 'Partially Paid' | 'Paid' = 'Pending';
+        if (instPaid >= instAmount && instAmount > 0) status = 'Paid';
+        else if (instPaid > 0) status = 'Partially Paid';
+
+        return {
+          installmentNumber: inst.installmentNumber || idx + 1,
+          name: (inst.name || `Installment ${idx + 1}`).trim(),
+          amount: instAmount,
+          dueDate: inst.dueDate ? new Date(inst.dueDate) : undefined,
+          paidAmount: instPaid,
+          status,
+          remarks: inst.remarks ? String(inst.remarks).trim() : '',
+        };
+      });
+
+      // If installment 1 exists and enrollmentFeeAmount wasn't explicitly provided, sync from installment 1
+      if (enrollmentFeeAmount === undefined && payment.installments.length > 0) {
+        payment.enrollmentFeeAmount = payment.installments[0].amount;
+      }
+
+      // If totalProgramFee wasn't provided, calculate sum of installments
+      if (totalProgramFee === undefined && payment.installments.length > 0) {
+        const sumInstallments = payment.installments.reduce((acc, curr) => acc + curr.amount, 0);
+        if (sumInstallments > 0) {
+          payment.totalProgramFee = sumInstallments;
+        }
+      }
+    }
+
+    const targetFee = payment.enrollmentFeeAmount;
+    payment.balanceAmount = Math.max(0, targetFee - payment.amountPaid);
+
+    if (payment.totalProgramFee && payment.totalProgramFee > 0) {
+      payment.totalProgramFeeBalance = Math.max(0, payment.totalProgramFee - payment.amountPaid);
+    } else {
+      payment.totalProgramFeeBalance = payment.balanceAmount;
+    }
+
+    // Auto-update payment status based on enrollment fee
+    if (payment.amountPaid >= targetFee && targetFee > 0) {
       payment.paymentStatus = 'Paid';
     } else if (payment.amountPaid > 0) {
       payment.paymentStatus = 'Partially Paid';
@@ -1357,7 +1456,7 @@ export const updateEnrollmentFee = async (req: Request, res: Response): Promise<
       payment.paymentStatus = 'Pending';
     }
 
-    if (remarks) payment.notes = remarks;
+    if (remarks) payment.notes = remarks.trim();
 
     await payment.save();
 
@@ -1367,14 +1466,19 @@ export const updateEnrollmentFee = async (req: Request, res: Response): Promise<
       entityType: 'PAYMENT',
       entityId: payment._id.toString(),
       applicationNumber: payment.applicationNumber,
-      previousState: { enrollmentFeeAmount: previousFee },
-      newState: { enrollmentFeeAmount: newFee, paymentStatus: payment.paymentStatus },
-      details: `Enrollment fee updated from ₹${previousFee} to ₹${newFee} by ${req.user?.name}`,
+      previousState: { enrollmentFeeAmount: previousFee, totalProgramFee: previousTotalFee },
+      newState: {
+        enrollmentFeeAmount: payment.enrollmentFeeAmount,
+        totalProgramFee: payment.totalProgramFee,
+        paymentStatus: payment.paymentStatus,
+        installmentsCount: payment.installments?.length || 0,
+      },
+      details: `Program Fee updated to ₹${payment.totalProgramFee || targetFee} (Enrollment: ₹${targetFee}) with ${payment.installments?.length || 0} installments by ${req.user?.name}`,
     });
 
-    sendSuccess(res, payment, 'Enrollment fee updated successfully.');
-  } catch (error) {
-    sendError(res, 'Failed to update enrollment fee.', 500);
+    sendSuccess(res, payment, 'Program fee and installments updated successfully.');
+  } catch (error: any) {
+    sendError(res, error.message || 'Failed to update fee.', 500);
   }
 };
 
@@ -1400,8 +1504,36 @@ export const syncProgramFee = async (req: Request, res: Response): Promise<void>
 
     const previousFee = payment.enrollmentFeeAmount;
     payment.enrollmentFeeAmount = program.enrollmentFeeAmount;
+    if (program.totalProgramFee) {
+      payment.totalProgramFee = program.totalProgramFee;
+    }
+
+    if (program.installmentsConfig && program.installmentsConfig.length > 0) {
+      let runningPaid = payment.amountPaid || 0;
+      payment.installments = program.installmentsConfig.map((cfg: any, idx: number) => {
+        const instAmount = Number(cfg.amount) || 0;
+        const instPaid = Math.min(instAmount, runningPaid);
+        runningPaid = Math.max(0, runningPaid - instPaid);
+        let status: 'Pending' | 'Partially Paid' | 'Paid' = 'Pending';
+        if (instPaid >= instAmount && instAmount > 0) status = 'Paid';
+        else if (instPaid > 0) status = 'Partially Paid';
+        return {
+          installmentNumber: cfg.installmentNumber || idx + 1,
+          name: cfg.name || `Installment ${idx + 1}`,
+          amount: instAmount,
+          paidAmount: instPaid,
+          status,
+          remarks: cfg.remarks || '',
+        };
+      });
+    }
+
     const paid = Number(payment.amountPaid) || 0;
     payment.balanceAmount = Math.max(0, program.enrollmentFeeAmount - paid);
+    if (payment.totalProgramFee) {
+      payment.totalProgramFeeBalance = Math.max(0, payment.totalProgramFee - paid);
+    }
+
     if (paid >= program.enrollmentFeeAmount && program.enrollmentFeeAmount > 0) {
       payment.paymentStatus = 'Paid';
     } else if (paid > 0) {
@@ -1418,11 +1550,11 @@ export const syncProgramFee = async (req: Request, res: Response): Promise<void>
       entityId: payment._id.toString(),
       applicationNumber: application.applicationNumber,
       previousState: { enrollmentFeeAmount: previousFee },
-      newState: { enrollmentFeeAmount: program.enrollmentFeeAmount, paymentStatus: payment.paymentStatus },
-      details: `Enrollment fee synced from Program Master (${program.name}): ₹${previousFee} -> ₹${program.enrollmentFeeAmount}`,
+      newState: { enrollmentFeeAmount: program.enrollmentFeeAmount, totalProgramFee: payment.totalProgramFee, paymentStatus: payment.paymentStatus },
+      details: `Enrollment & Program fee synced from Program Master (${program.name}): ₹${previousFee} -> ₹${program.enrollmentFeeAmount} (Total: ₹${payment.totalProgramFee || 0})`,
     });
 
-    sendSuccess(res, payment, `Enrollment fee synced with Program Master (₹${program.enrollmentFeeAmount.toLocaleString('en-IN')}).`);
+    sendSuccess(res, payment, `Program fee synced with Program Master (Enrollment: ₹${program.enrollmentFeeAmount.toLocaleString('en-IN')}${payment.totalProgramFee ? `, Total: ₹${payment.totalProgramFee.toLocaleString('en-IN')}` : ''}).`);
   } catch (error: any) {
     sendError(res, error.message || 'Failed to sync program fee.', 500);
   }

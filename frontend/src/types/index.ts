@@ -4,6 +4,7 @@ export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'HR_EXECUTIVE' | 'ACCOUNTS';
 
 export interface User {
   id: string;
+  _id?: string;
   employeeId: string;
   name: string;
   email: string;
@@ -40,6 +41,14 @@ export interface InterviewRoundConfig {
   defaultMode?: 'Online' | 'Offline' | 'Telephonic';
 }
 
+export interface ProgramInstallmentConfig {
+  installmentNumber: number;
+  name: string;
+  amount: number;
+  dueDays?: number;
+  remarks?: string;
+}
+
 export interface Program {
   _id: string;
   bankId: string | Bank;
@@ -51,7 +60,9 @@ export interface Program {
   location?: string;
   vendorAvailability: string[];
   interviewRoundsConfig: InterviewRoundConfig[];
+  totalProgramFee?: number;
   enrollmentFeeAmount: number;
+  installmentsConfig?: ProgramInstallmentConfig[];
   paymentTrigger: 'BEFORE_INTERVIEW' | 'AFTER_SELECTION';
   isRefundable: boolean;
   loanAvailable: boolean;
@@ -128,18 +139,36 @@ export interface InterviewRound {
   attempts: InterviewAttempt[];
 }
 
+export interface Installment {
+  _id?: string;
+  installmentNumber: number;
+  name: string;
+  amount: number;
+  dueDate?: string;
+  paidAmount: number;
+  status: 'Pending' | 'Partially Paid' | 'Paid';
+  paymentDate?: string;
+  receiptNumber?: string;
+  transactionReference?: string;
+  remarks?: string;
+}
+
 export interface Payment {
   _id: string;
   applicationId: string;
   applicationNumber: string;
   paymentRoute: PaymentRoute;
+  totalProgramFee?: number;
+  totalProgramFeeBalance?: number;
   enrollmentFeeAmount: number;
   amountPaid: number;
   balanceAmount: number;
   paymentStatus: PaymentStatus;
   paymentTrigger: 'BEFORE_INTERVIEW' | 'AFTER_SELECTION';
+  installments?: Installment[];
   transactions: PaymentTransaction[];
   refund: RefundDetails;
+  notes?: string;
 }
 
 export interface PaymentTransaction {
