@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import fs from 'fs';
+import ExcelJS from 'exceljs';
 import { Candidate } from '../models/Candidate';
 import { Application } from '../models/Application';
 import { Payment } from '../models/Payment';
@@ -563,6 +564,36 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
       return;
     }
 
+    // Step-by-step update pipeline check:
+    // Candidate cannot be marked as Selected, Fee Pending, Loan, Campus Reporting or Arrived in Campus
+    // without clearing all mandatory interview rounds!
+    const advancedStages = [
+      'Selected',
+      'Enrollment Fee Pending',
+      'Loan Processing',
+      'Campus Reporting Pending',
+      'Arrived in Campus',
+    ];
+
+    if (advancedStages.includes(overallStatus)) {
+      const mandatoryRounds = (application.interviewRounds || []).filter((r) => r.isMandatory);
+      const incompleteRounds = mandatoryRounds.filter(
+        (r) =>
+          !['Selected', 'Passed', 'Completed'].includes(r.currentStatus) &&
+          !['Selected', 'Passed'].includes(r.result || '')
+      );
+
+      if (incompleteRounds.length > 0) {
+        const roundNames = incompleteRounds.map((r) => r.roundName).join(', ');
+        sendError(
+          res,
+          `Step-by-step update required: Candidate cannot be moved to '${overallStatus}'. Mandatory interview round(s) [${roundNames}] must be evaluated and marked as Passed / Selected first.`,
+          400
+        );
+        return;
+      }
+    }
+
     const previousStatus = application.overallStatus;
     application.overallStatus = overallStatus;
     if (remarks) application.remarks = remarks;
@@ -839,31 +870,71 @@ export const updateInterviewRound = async (req: Request, res: Response): Promise
       });
     }
 
-    // Update round with new information
-    if (currentStatus) round.currentStatus = currentStatus;
+    // Update round with new information and auto-sync status/result
+    if (result !== undefined && result !== '') {
+      round.result = result;
+      if (['Passed', 'Selected'].includes(result)) {
+        round.currentStatus = 'Selected';
+      } else if (['Failed', 'Rejected'].includes(result)) {
+        round.currentStatus = 'Rejected';
+      } else if (result === 'Absent') {
+        round.currentStatus = 'Absent';
+      } else if (result === 'On Hold') {
+        round.currentStatus = 'On Hold';
+      }
+    }
+
+    if (currentStatus) {
+      if (currentStatus === 'Passed') {
+        round.currentStatus = 'Selected';
+        if (!round.result) round.result = 'Passed';
+      } else if (currentStatus === 'Failed') {
+        round.currentStatus = 'Rejected';
+        if (!round.result) round.result = 'Failed';
+      } else {
+        round.currentStatus = currentStatus;
+      }
+    }
+
     if (scheduledDate) round.scheduledDate = new Date(scheduledDate);
     if (scheduledTime !== undefined) round.scheduledTime = scheduledTime;
     if (interviewMode) round.interviewMode = interviewMode;
     if (venueOrLink !== undefined) round.venueOrLink = venueOrLink;
     if (interviewerName !== undefined) round.interviewerName = interviewerName;
-    if (result !== undefined) round.result = result;
     if (remarks !== undefined) round.remarks = remarks;
     round.lastUpdated = new Date();
 
-    // Auto-sync overallStatus if round is Selected or Rejected
-    if (
-      (currentStatus === 'Selected' || result === 'Selected') &&
+    // If date is scheduled and status still 'Yet to Schedule', advance to 'Scheduled'
+    if (round.scheduledDate && round.currentStatus === 'Yet to Schedule') {
+      round.currentStatus = 'Scheduled';
+    }
+
+    // Auto-sync application overallStatus based on mandatory rounds
+    application.interviewRounds[roundIndex] = round;
+
+    const mandatoryRounds = (application.interviewRounds || []).filter((r) => r.isMandatory);
+    const anyMandatoryRejected = mandatoryRounds.some(
+      (r) => r.currentStatus === 'Rejected' || r.result === 'Rejected' || r.result === 'Failed'
+    );
+    const allMandatoryCleared =
+      mandatoryRounds.length > 0 &&
+      mandatoryRounds.every(
+        (r) =>
+          ['Selected', 'Passed', 'Completed'].includes(r.currentStatus) ||
+          ['Selected', 'Passed'].includes(r.result || '')
+      );
+
+    if (anyMandatoryRejected) {
+      application.overallStatus = 'Rejected';
+    } else if (
+      allMandatoryCleared &&
       ['Registered', 'Awaiting Interview', 'Interview in Progress', 'Referred'].includes(application.overallStatus)
     ) {
       application.overallStatus = 'Selected';
-    } else if (
-      (currentStatus === 'Rejected' || result === 'Rejected') &&
-      round.isMandatory
-    ) {
-      application.overallStatus = 'Rejected';
+    } else if (['Registered', 'Referred'].includes(application.overallStatus)) {
+      application.overallStatus = 'Interview in Progress';
     }
 
-    application.interviewRounds[roundIndex] = round;
     await application.save();
 
     await logActivity({
@@ -891,8 +962,9 @@ export const updateInterviewRound = async (req: Request, res: Response): Promise
       },
       `Interview round '${round.roundName}' updated successfully.`
     );
-  } catch (error) {
-    sendError(res, 'Failed to update interview round.', 500);
+  } catch (error: any) {
+    console.error('Update interview round error:', error);
+    sendError(res, error.message || 'Failed to update interview round.', 500);
   }
 };
 
@@ -1626,6 +1698,493 @@ export const deleteApplication = async (req: Request, res: Response): Promise<vo
     sendError(res, error.message || 'Failed to delete candidate permanently.', 500);
   } finally {
     session.endSession();
+  }
+};
+
+// ---- EXCEL IMPORT & EXPORT ----
+
+export const downloadCandidateImportTemplate = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Candidate Import Template');
+
+    // Header columns
+    sheet.columns = [
+      { header: 'Full Name *', key: 'fullName', width: 26 },
+      { header: 'Mobile Number *', key: 'mobileNumber', width: 18 },
+      { header: 'Email Address *', key: 'email', width: 28 },
+      { header: 'Date of Birth (YYYY-MM-DD)', key: 'dateOfBirth', width: 24 },
+      { header: 'State', key: 'state', width: 18 },
+      { header: 'City / District', key: 'district', width: 18 },
+      { header: 'Bank Name *', key: 'bankName', width: 24 },
+      { header: 'Program Name *', key: 'programName', width: 32 },
+      { header: 'Vendor Name', key: 'vendorName', width: 20 },
+      { header: 'HR Reference (Emp ID or Name)', key: 'hrReference', width: 28 },
+      { header: 'Batch Number', key: 'batchNumber', width: 18 },
+      { header: 'Payment Route (Vendor Loan / Full Payment)', key: 'paymentRoute', width: 32 },
+    ];
+
+    // Style header
+    const headerRow = sheet.getRow(1);
+    headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+    headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F2744' } };
+    headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+    headerRow.height = 28;
+
+    // Sample data rows
+    sheet.addRow({
+      fullName: 'Rahul Sharma',
+      mobileNumber: '9876543210',
+      email: 'rahul.sharma@example.com',
+      dateOfBirth: '1999-05-15',
+      state: 'Tamil Nadu',
+      district: 'Chennai',
+      bankName: 'Axis',
+      programName: 'Axis Operations Executive',
+      vendorName: 'Manipal',
+      hrReference: 'HR001',
+      batchNumber: 'Batch 2026-A',
+      paymentRoute: 'ROUTE_A_VENDOR_LOAN',
+    });
+
+    sheet.addRow({
+      fullName: 'Priya Sundaram',
+      mobileNumber: '9845123456',
+      email: 'priya.sundaram@example.com',
+      dateOfBirth: '2001-08-22',
+      state: 'Karnataka',
+      district: 'Bangalore',
+      bankName: 'HDFC Life',
+      programName: 'HDFC Life Advisor Program',
+      vendorName: 'Crack-ed',
+      hrReference: '',
+      batchNumber: 'Batch 2026-B',
+      paymentRoute: 'ROUTE_B_FULL_PAYMENT',
+    });
+
+    // Reference worksheet for valid banks, programs, vendors & HR
+    const refSheet = workbook.addWorksheet('Reference - Valid Masters');
+    const [banks, programs, vendors, hrs] = await Promise.all([
+      Bank.find({ status: 'ACTIVE' }).select('name code'),
+      Program.find({ status: 'ACTIVE' }).select('name bankName code'),
+      Vendor.find({ status: 'ACTIVE' }).select('name code'),
+      User.find({ role: { $in: ['HR_EXECUTIVE', 'ADMIN', 'SUPER_ADMIN'] } }).select('name employeeId'),
+    ]);
+
+    refSheet.columns = [
+      { header: 'Available Banks', key: 'banks', width: 26 },
+      { header: 'Available Programs (Bank)', key: 'programs', width: 36 },
+      { header: 'Available Vendors', key: 'vendors', width: 22 },
+      { header: 'Available HR References', key: 'hrs', width: 28 },
+    ];
+    const refHeader = refSheet.getRow(1);
+    refHeader.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    refHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
+
+    const maxLen = Math.max(banks.length, programs.length, vendors.length, hrs.length);
+    for (let i = 0; i < maxLen; i++) {
+      refSheet.addRow({
+        banks: banks[i]?.name || '',
+        programs: programs[i] ? `${programs[i].name} (${programs[i].bankName})` : '',
+        vendors: vendors[i]?.name || '',
+        hrs: hrs[i] ? `${hrs[i].name} (${hrs[i].employeeId})` : '',
+      });
+    }
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=FIC_Candidate_Import_Template.xlsx');
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error: any) {
+    console.error('Download template error:', error);
+    sendError(res, 'Failed to generate candidate template.', 500);
+  }
+};
+
+export const importCandidatesExcel = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const file = (req as any).file;
+    if (!file || !file.buffer) {
+      sendError(res, 'Please upload an Excel (.xlsx) file to import candidates.', 400);
+      return;
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(file.buffer);
+
+    const sheet = workbook.worksheets[0];
+    if (!sheet) {
+      sendError(res, 'The uploaded Excel file contains no worksheets.', 400);
+      return;
+    }
+
+    // Pre-fetch master data into lookup maps
+    const [banks, programs, vendors, users] = await Promise.all([
+      Bank.find({}),
+      Program.find({}),
+      Vendor.find({}),
+      User.find({}),
+    ]);
+
+    const bankMap = new Map<string, any>();
+    banks.forEach((b) => {
+      bankMap.set(b.name.toLowerCase().trim(), b);
+      bankMap.set(b.code.toLowerCase().trim(), b);
+      bankMap.set(b._id.toString(), b);
+    });
+
+    const programList = programs;
+
+    const vendorMap = new Map<string, any>();
+    vendors.forEach((v) => {
+      vendorMap.set(v.name.toLowerCase().trim(), v);
+      vendorMap.set(v.code.toLowerCase().trim(), v);
+    });
+
+    const userMap = new Map<string, any>();
+    users.forEach((u) => {
+      userMap.set(u.employeeId.toLowerCase().trim(), u);
+      userMap.set(u.name.toLowerCase().trim(), u);
+      userMap.set(u.email.toLowerCase().trim(), u);
+    });
+
+    const errors: Array<{ row: number; candidate: string; error: string }> = [];
+    const createdApplications: any[] = [];
+    const seenMobiles = new Set<string>();
+    const seenEmails = new Set<string>();
+
+    let totalRows = 0;
+
+    // Iterate through sheet rows (skip header row 1)
+    const rows: any[] = [];
+    sheet.eachRow((row, rowNumber) => {
+      if (rowNumber > 1) {
+        rows.push({ rowNumber, values: row.values as any[] });
+      }
+    });
+
+    totalRows = rows.length;
+
+    for (const item of rows) {
+      const { rowNumber, values } = item;
+      // cell 1 is empty or index 1 based
+      const fullName = String(values[1] || '').trim();
+      const mobileNumber = String(values[2] || '').trim().replace(/\D/g, '');
+      const email = String(values[3] || '').trim().toLowerCase();
+      const dobVal = values[4];
+      const state = String(values[5] || '').trim();
+      const district = String(values[6] || '').trim();
+      const bankNameInput = String(values[7] || '').trim();
+      const programNameInput = String(values[8] || '').trim();
+      const vendorNameInput = String(values[9] || '').trim();
+      const hrRefInput = String(values[10] || '').trim();
+      const batchNumber = String(values[11] || '').trim();
+      const paymentRouteInput = String(values[12] || '').trim().toUpperCase();
+
+      // Skip row if completely empty
+      if (!fullName && !mobileNumber && !email) {
+        continue;
+      }
+
+      // 1. Validation: Name, Mobile, Email
+      if (!fullName) {
+        errors.push({ row: rowNumber, candidate: fullName || `Row ${rowNumber}`, error: 'Candidate Full Name is required.' });
+        continue;
+      }
+
+      if (!mobileNumber || mobileNumber.length < 10) {
+        errors.push({ row: rowNumber, candidate: fullName, error: `Invalid mobile number '${values[2]}'. Must have at least 10 digits.` });
+        continue;
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!email || !emailRegex.test(email)) {
+        errors.push({ row: rowNumber, candidate: fullName, error: `Invalid email address '${values[3]}'.` });
+        continue;
+      }
+
+      // Check duplicate within the uploaded sheet
+      if (seenMobiles.has(mobileNumber)) {
+        errors.push({ row: rowNumber, candidate: fullName, error: `Duplicate mobile number '${mobileNumber}' within the same Excel sheet.` });
+        continue;
+      }
+      if (seenEmails.has(email)) {
+        errors.push({ row: rowNumber, candidate: fullName, error: `Duplicate email '${email}' within the same Excel sheet.` });
+        continue;
+      }
+
+      // Check duplicate against existing database
+      const existingCandidate = await Candidate.findOne({
+        $or: [{ mobileNumber }, { email }],
+      });
+      if (existingCandidate) {
+        errors.push({
+          row: rowNumber,
+          candidate: fullName,
+          error: `Candidate already registered in system with this ${existingCandidate.mobileNumber === mobileNumber ? 'mobile number' : 'email'} (${existingCandidate.fullName}).`,
+        });
+        continue;
+      }
+
+      // 2. Resolve Bank
+      if (!bankNameInput) {
+        errors.push({ row: rowNumber, candidate: fullName, error: 'Bank Name is required.' });
+        continue;
+      }
+
+      let resolvedBank = bankMap.get(bankNameInput.toLowerCase());
+      if (!resolvedBank) {
+        // Fallback fuzzy search
+        resolvedBank = banks.find(
+          (b) =>
+            b.name.toLowerCase().includes(bankNameInput.toLowerCase()) ||
+            bankNameInput.toLowerCase().includes(b.name.toLowerCase())
+        );
+      }
+      if (!resolvedBank) {
+        errors.push({ row: rowNumber, candidate: fullName, error: `Bank '${bankNameInput}' was not found in system masters.` });
+        continue;
+      }
+
+      // 3. Resolve Program
+      if (!programNameInput) {
+        errors.push({ row: rowNumber, candidate: fullName, error: 'Program Name is required.' });
+        continue;
+      }
+
+      const cleanProgInput = programNameInput.toLowerCase();
+      let resolvedProgram = programList.find(
+        (p) =>
+          (p.bankId?.toString() === resolvedBank._id.toString() || p.bankName?.toLowerCase() === resolvedBank.name.toLowerCase()) &&
+          (p.name.toLowerCase() === cleanProgInput || p.code?.toLowerCase() === cleanProgInput)
+      );
+
+      if (!resolvedProgram) {
+        // Broad search across bank's programs
+        resolvedProgram = programList.find(
+          (p) =>
+            p.bankId?.toString() === resolvedBank._id.toString() &&
+            (p.name.toLowerCase().includes(cleanProgInput) || cleanProgInput.includes(p.name.toLowerCase()))
+        );
+      }
+
+      if (!resolvedProgram) {
+        // Broad search across any program matching name
+        resolvedProgram = programList.find(
+          (p) => p.name.toLowerCase() === cleanProgInput || p.name.toLowerCase().includes(cleanProgInput)
+        );
+      }
+
+      if (!resolvedProgram) {
+        errors.push({ row: rowNumber, candidate: fullName, error: `Program '${programNameInput}' not found for bank '${resolvedBank.name}'.` });
+        continue;
+      }
+
+      // 4. Resolve Vendor (optional)
+      let resolvedVendor: any = null;
+      if (vendorNameInput) {
+        resolvedVendor = vendorMap.get(vendorNameInput.toLowerCase()) ||
+          vendors.find((v) => v.name.toLowerCase().includes(vendorNameInput.toLowerCase()));
+      }
+
+      // 5. Resolve HR Reference (optional)
+      let resolvedHr: any = null;
+      if (hrRefInput) {
+        resolvedHr = userMap.get(hrRefInput.toLowerCase()) ||
+          users.find((u) => u.name.toLowerCase().includes(hrRefInput.toLowerCase()));
+      }
+
+      // Payment route
+      const paymentRoute = paymentRouteInput.includes('FULL')
+        ? 'ROUTE_B_FULL_PAYMENT'
+        : 'ROUTE_A_VENDOR_LOAN';
+
+      // Parse Date of Birth
+      let parsedDob: Date | undefined;
+      if (dobVal) {
+        const d = new Date(dobVal);
+        if (!isNaN(d.getTime())) parsedDob = d;
+      }
+
+      // Create Candidate
+      const candidate = await Candidate.create({
+        fullName,
+        email,
+        mobileNumber,
+        dateOfBirth: parsedDob,
+        state: state || undefined,
+        district: district || undefined,
+        city: district || undefined,
+      });
+
+      // Build initial interview rounds from program configuration
+      const sortedRounds = [...(resolvedProgram.interviewRoundsConfig || [])].sort((a, b) => a.order - b.order);
+      const interviewRounds = sortedRounds.map((r) => ({
+        roundId: r.roundId,
+        roundName: r.roundName,
+        isMandatory: r.isMandatory !== undefined ? r.isMandatory : true,
+        order: r.order,
+        currentStatus: 'Yet to Schedule' as const,
+        interviewMode: r.defaultMode || 'Online',
+        attempts: [],
+      }));
+
+      // Generate unique application number
+      const applicationNumber = await generateApplicationNumber();
+
+      // Create Application
+      const application = await Application.create({
+        applicationNumber,
+        candidateId: candidate._id,
+        candidateName: candidate.fullName,
+        candidateEmail: candidate.email,
+        candidateMobile: candidate.mobileNumber,
+        bankId: resolvedBank._id,
+        bankName: resolvedBank.name,
+        programId: resolvedProgram._id,
+        programName: resolvedProgram.name,
+        vendorId: resolvedVendor?._id || undefined,
+        vendorName: resolvedVendor?.name || '',
+        hrReferenceId: resolvedHr?._id || undefined,
+        hrReferenceName: resolvedHr?.name || '',
+        batchNumber: batchNumber || undefined,
+        paymentRoute,
+        overallStatus: 'Registered',
+        interviewRounds,
+        registrationDate: new Date(),
+      });
+
+      // Create initial Payment record if Route A
+      if (paymentRoute === 'ROUTE_A_VENDOR_LOAN') {
+        await Payment.create({
+          applicationId: application._id,
+          applicationNumber: application.applicationNumber,
+          candidateId: candidate._id,
+          bankId: resolvedBank._id,
+          programId: resolvedProgram._id,
+          enrollmentFeeAmount: resolvedProgram.enrollmentFeeAmount || 0,
+          paymentTrigger: resolvedProgram.paymentTrigger || 'AFTER_SELECTION',
+          paymentStatus: 'Pending',
+          amountPaid: 0,
+          balanceAmount: resolvedProgram.enrollmentFeeAmount || 0,
+          transactions: [],
+        });
+      }
+
+      seenMobiles.add(mobileNumber);
+      seenEmails.add(email);
+      createdApplications.push(application.applicationNumber);
+    }
+
+    if (createdApplications.length > 0) {
+      await logActivity({
+        req,
+        action: 'CANDIDATE_REGISTERED',
+        entityType: 'APPLICATION',
+        entityId: createdApplications[0],
+        details: `Bulk imported ${createdApplications.length} candidate(s) via Excel.`,
+      });
+    }
+
+    sendSuccess(
+      res,
+      {
+        totalRows,
+        importedCount: createdApplications.length,
+        skippedCount: errors.length,
+        errors,
+      },
+      `Excel import complete. Successfully registered ${createdApplications.length} candidate(s).`
+    );
+  } catch (error: any) {
+    console.error('Import candidates error:', error);
+    sendError(res, error.message || 'Failed to process Excel import.', 500);
+  }
+};
+
+export const exportCandidatesExcel = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { status, bankId, programId, search } = req.query;
+    const filter: any = {};
+
+    if (status && status !== 'ALL') filter.overallStatus = status;
+    if (bankId && bankId !== 'ALL') filter.bankId = bankId;
+    if (programId && programId !== 'ALL') filter.programId = programId;
+    if (search) {
+      const q = String(search).trim();
+      filter.$or = [
+        { candidateName: { $regex: q, $options: 'i' } },
+        { candidateEmail: { $regex: q, $options: 'i' } },
+        { candidateMobile: { $regex: q, $options: 'i' } },
+        { applicationNumber: { $regex: q, $options: 'i' } },
+      ];
+    }
+
+    const applications = await Application.find(filter)
+      .populate('candidateId', 'state district city dateOfBirth')
+      .sort({ createdAt: -1 });
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('FIC Candidates Export');
+
+    sheet.columns = [
+      { header: 'Application No.', key: 'appNo', width: 22 },
+      { header: 'Candidate Name', key: 'name', width: 26 },
+      { header: 'Mobile Number', key: 'mobile', width: 18 },
+      { header: 'Email Address', key: 'email', width: 28 },
+      { header: 'Bank Name', key: 'bank', width: 22 },
+      { header: 'Program Name', key: 'program', width: 30 },
+      { header: 'Vendor Name', key: 'vendor', width: 20 },
+      { header: 'HR Reference', key: 'hr', width: 24 },
+      { header: 'Batch Number', key: 'batch', width: 18 },
+      { header: 'Overall Status', key: 'status', width: 24 },
+      { header: 'Interview Progress', key: 'interviewProgress', width: 32 },
+      { header: 'Payment Route', key: 'route', width: 22 },
+      { header: 'State', key: 'state', width: 18 },
+      { header: 'City', key: 'city', width: 18 },
+      { header: 'Registration Date', key: 'date', width: 18 },
+    ];
+
+    const headerRow = sheet.getRow(1);
+    headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+    headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F2744' } };
+    headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+    headerRow.height = 26;
+
+    applications.forEach((app: any) => {
+      const cand = app.candidateId || {};
+      const interviewSummary = (app.interviewRounds || [])
+        .map((r: any) => `${r.roundName}: ${r.result || r.currentStatus}`)
+        .join(' | ') || 'None';
+
+      sheet.addRow({
+        appNo: app.applicationNumber,
+        name: app.candidateName,
+        mobile: app.candidateMobile,
+        email: app.candidateEmail,
+        bank: app.bankName,
+        program: app.programName,
+        vendor: app.vendorName || '-',
+        hr: app.hrReferenceName || '-',
+        batch: app.batchNumber || '-',
+        status: app.overallStatus,
+        interviewProgress: interviewSummary,
+        route: app.paymentRoute === 'ROUTE_A_VENDOR_LOAN' ? 'Vendor Loan' : 'Full Payment',
+        state: cand.state || '-',
+        city: cand.city || cand.district || '-',
+        date: app.registrationDate ? new Date(app.registrationDate).toLocaleDateString('en-IN') : '-',
+      });
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=FIC_Candidates_Export_${Date.now()}.xlsx`);
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error: any) {
+    console.error('Export candidates error:', error);
+    sendError(res, 'Failed to export candidate records to Excel.', 500);
   }
 };
 

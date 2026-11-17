@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Search, Plus, Filter, Download, ChevronLeft, ChevronRight,
-  RefreshCw, Eye, Users, Edit2, Trash2
+  Search, Plus, Filter, Download, Upload, ChevronLeft, ChevronRight,
+  RefreshCw, Eye, Users, Edit2, Trash2, FileSpreadsheet
 } from 'lucide-react';
 import { applicationsApi, banksApi, vendorsApi, programsApi, usersApi, reportsApi } from '../../api/endpoints';
 import { Application, Bank, Vendor, Program, User, ALL_APPLICATION_STATUSES } from '../../types';
@@ -11,6 +11,7 @@ import { Badge, Button, Select, EmptyState, LoadingSpinner, PageHeader, ConfirmD
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { RegisterCandidateModal } from './RegisterCandidateModal';
+import { ImportCandidatesModal } from './ImportCandidatesModal';
 
 export const CandidatesPage = () => {
   const navigate = useNavigate();
@@ -23,6 +24,8 @@ export const CandidatesPage = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [showRegister, setShowRegister] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Application | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -93,6 +96,16 @@ export const CandidatesPage = () => {
   }, []);
 
   useEffect(() => {
+    const handleRefreshEvent = () => {
+      loadApplications(page);
+    };
+    window.addEventListener('fic:stats-refresh', handleRefreshEvent);
+    return () => {
+      window.removeEventListener('fic:stats-refresh', handleRefreshEvent);
+    };
+  }, [loadApplications, page]);
+
+  useEffect(() => {
     const timer = setTimeout(() => loadApplications(1), 350);
     return () => clearTimeout(timer);
   }, [search, filterBank, filterProgram, filterVendor, filterHR, filterStatus, fromDate, toDate]);
@@ -115,17 +128,42 @@ export const CandidatesPage = () => {
     )
   );
 
-  const handleExport = () => {
-    const params: Record<string, string> = {};
-    if (filterBank) params.bank = filterBank;
-    if (filterProgram) params.program = filterProgram;
-    if (filterVendor) params.vendor = filterVendor;
-    if (filterStatus) params.status = filterStatus;
-    if (fromDate) params.fromDate = fromDate;
-    if (toDate) params.toDate = toDate;
-    const url = reportsApi.exportInterview(params);
-    const token = localStorage.getItem('fic_token');
-    window.open(`${url}&_t=${token}`, '_blank');
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const params: Record<string, string> = {};
+      if (search) params.search = search;
+      if (filterBank) params.bankId = filterBank;
+      if (filterProgram) params.programId = filterProgram;
+      if (filterVendor) params.vendorId = filterVendor;
+      if (filterHR) params.hr = filterHR;
+      if (filterStatus) params.status = filterStatus;
+      if (fromDate) params.fromDate = fromDate;
+      if (toDate) params.toDate = toDate;
+
+      const url = applicationsApi.exportExcel(params);
+      const token = localStorage.getItem('fic_token');
+      const response = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) {
+        throw new Error('Failed to generate export');
+      }
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.setAttribute('download', `candidates_export_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+      toast.success('Candidates exported to Excel successfully.');
+    } catch (err: any) {
+      toast.error('Failed to export candidates: ' + (err.message || 'Server error'));
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleDeleteCandidate = async () => {
@@ -155,15 +193,30 @@ export const CandidatesPage = () => {
               onClick={() => loadApplications(page)}>
               Refresh
             </Button>
-            <Button variant="secondary" size="sm" leftIcon={<Download className="w-3.5 h-3.5" />}
-              onClick={handleExport}>
-              Export
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={<Download className="w-3.5 h-3.5" />}
+              isLoading={isExporting}
+              onClick={handleExport}
+            >
+              Export Excel
             </Button>
             {hasRole('SUPER_ADMIN', 'ADMIN', 'HR_EXECUTIVE') && (
-              <Button size="sm" leftIcon={<Plus className="w-3.5 h-3.5" />}
-                onClick={() => setShowRegister(true)}>
-                Add Candidate
-              </Button>
+              <>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={<Upload className="w-3.5 h-3.5" />}
+                  onClick={() => setShowImportModal(true)}
+                >
+                  Import Excel
+                </Button>
+                <Button size="sm" leftIcon={<Plus className="w-3.5 h-3.5" />}
+                  onClick={() => setShowRegister(true)}>
+                  Add Candidate
+                </Button>
+              </>
             )}
           </>
         }
@@ -506,6 +559,16 @@ export const CandidatesPage = () => {
           onClose={() => setShowRegister(false)}
           onSuccess={() => {
             setShowRegister(false);
+            loadApplications(1);
+          }}
+        />
+      )}
+
+      {showImportModal && (
+        <ImportCandidatesModal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          onSuccess={() => {
             loadApplications(1);
           }}
         />

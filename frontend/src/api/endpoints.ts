@@ -83,6 +83,10 @@ export const applicationsApi = {
   syncProgramFee: (id: string) =>
     api.post<any>(`/applications/${id}/sync-program-fee`, {}),
   delete: (id: string) => api.delete<any>(`/applications/${id}`),
+  downloadTemplate: () => `${BASE_URL}/applications/excel/template`,
+  importExcel: (formData: FormData) => api.post<any>('/applications/excel/import', formData),
+  exportExcel: (params?: Record<string, string>) =>
+    `${BASE_URL}/applications/excel/export?${new URLSearchParams(params || {}).toString()}`,
 };
 
 // Reports

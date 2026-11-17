@@ -161,7 +161,27 @@ export const RegisterCandidateModal: React.FC<Props> = ({ isOpen, onClose, onSuc
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Register New Candidate & Application" size="2xl">
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-5"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            const target = e.target as HTMLElement;
+            if (target.tagName === 'TEXTAREA' || target.getAttribute('type') === 'submit') return;
+            e.preventDefault();
+            const formEl = e.currentTarget;
+            const focusables = Array.from(
+              formEl.querySelectorAll<HTMLElement>(
+                'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button[type="submit"]:not([disabled])'
+              )
+            );
+            const idx = focusables.indexOf(target);
+            if (idx > -1 && idx < focusables.length - 1) {
+              focusables[idx + 1].focus();
+            }
+          }
+        }}
+      >
         {/* Candidate Details */}
         <div>
           <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Candidate Information</h4>

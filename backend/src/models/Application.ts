@@ -21,11 +21,15 @@ export type InterviewRoundStatus =
   | 'Scheduled'
   | 'Completed'
   | 'Selected'
+  | 'Passed'
   | 'Rejected'
+  | 'Failed'
+  | 'Appeared'
   | 'Absent'
   | 'Dropped'
   | 'Not Applicable'
-  | 'On Hold';
+  | 'On Hold'
+  | 'Pending';
 
 export type PaymentRoute = 'ROUTE_A_VENDOR_LOAN' | 'ROUTE_B_FULL_PAYMENT';
 
@@ -111,11 +115,15 @@ const InterviewAttemptSchema = new Schema<IInterviewAttempt>(
         'Scheduled',
         'Completed',
         'Selected',
+        'Passed',
         'Rejected',
+        'Failed',
+        'Appeared',
         'Absent',
         'Dropped',
         'Not Applicable',
         'On Hold',
+        'Pending',
       ],
       default: 'Yet to Schedule',
     },
@@ -141,11 +149,15 @@ const DynamicRoundDataSchema = new Schema<IDynamicRoundData>(
         'Scheduled',
         'Completed',
         'Selected',
+        'Passed',
         'Rejected',
+        'Failed',
+        'Appeared',
         'Absent',
         'Dropped',
         'Not Applicable',
         'On Hold',
+        'Pending',
       ],
       default: 'Yet to Schedule',
     },

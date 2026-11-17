@@ -30,11 +30,15 @@ export const interviewStatusBadge: Record<InterviewRoundStatus, string> = {
   'Scheduled': 'bg-blue-100 text-blue-700',
   'Completed': 'bg-cyan-100 text-cyan-700',
   'Selected': 'bg-green-100 text-green-700',
+  'Passed': 'bg-emerald-100 text-emerald-700 font-semibold',
   'Rejected': 'bg-red-100 text-red-700',
+  'Failed': 'bg-rose-100 text-rose-700 font-semibold',
+  'Appeared': 'bg-indigo-100 text-indigo-700',
   'Absent': 'bg-orange-100 text-orange-700',
   'Dropped': 'bg-slate-200 text-slate-500',
   'Not Applicable': 'bg-gray-100 text-gray-400',
   'On Hold': 'bg-yellow-100 text-yellow-700',
+  'Pending': 'bg-amber-100 text-amber-700',
 };
 
 export const paymentStatusBadge: Record<PaymentStatus, string> = {

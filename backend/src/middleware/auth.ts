@@ -34,6 +34,8 @@ export const authenticateToken = async (
       token = authHeader.split(' ')[1];
     } else if (req.cookies && req.cookies.fic_token) {
       token = req.cookies.fic_token;
+    } else if (req.query && typeof req.query._t === 'string') {
+      token = req.query._t;
     }
 
     if (!token) {

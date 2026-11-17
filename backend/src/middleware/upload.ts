@@ -49,3 +49,18 @@ export const resumeUpload = multer({
   fileFilter,
 });
 
+export const excelUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB
+  },
+  fileFilter: (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (ext === '.xlsx' || ext === '.xls' || ext === '.csv') {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file format. Please upload an Excel (.xlsx, .xls) or CSV file.'));
+    }
+  },
+});
+

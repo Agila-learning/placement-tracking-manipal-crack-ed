@@ -18,13 +18,21 @@ import {
   updateCandidateAndApplicationDetails,
   syncProgramFee,
   deleteApplication,
+  downloadCandidateImportTemplate,
+  importCandidatesExcel,
+  exportCandidatesExcel,
 } from '../controllers/candidateController';
 import { authenticateToken } from '../middleware/auth';
 import { hrAndAbove, adminAndAbove, accountsAndAbove } from '../middleware/rbac';
-import { resumeUpload } from '../middleware/upload';
+import { resumeUpload, excelUpload } from '../middleware/upload';
 
 const router = Router();
 router.use(authenticateToken);
+
+// Excel Template, Import & Export (Placed before /:id routes)
+router.get('/excel/template', downloadCandidateImportTemplate);
+router.post('/excel/import', hrAndAbove, excelUpload.single('file'), importCandidatesExcel);
+router.get('/excel/export', exportCandidatesExcel);
 
 // Dashboard
 router.get('/dashboard/stats', getDashboardStats);

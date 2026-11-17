@@ -175,6 +175,36 @@ export const CandidateDetailPage = () => {
     if (activeTab === 'activity') loadLogs();
   }, [activeTab, application]);
 
+  // Auto-refresh when stats or application records update
+  useEffect(() => {
+    const handleAutoRefresh = () => {
+      load(false);
+      if (activeTab === 'activity') loadLogs();
+    };
+    window.addEventListener('fic:stats-refresh', handleAutoRefresh);
+    window.addEventListener('focus', handleAutoRefresh);
+    return () => {
+      window.removeEventListener('fic:stats-refresh', handleAutoRefresh);
+      window.removeEventListener('focus', handleAutoRefresh);
+    };
+  }, [id, activeTab]);
+
+  // Tab navigation shortcuts (Alt+1 to Alt+6)
+  useEffect(() => {
+    const handleKeyNav = (e: KeyboardEvent) => {
+      if (e.altKey) {
+        if (e.key === '1') { e.preventDefault(); setActiveTab('details'); }
+        else if (e.key === '2') { e.preventDefault(); setActiveTab('interviews'); }
+        else if (e.key === '3') { e.preventDefault(); setActiveTab('payments'); }
+        else if (e.key === '4') { e.preventDefault(); setActiveTab('loans'); }
+        else if (e.key === '5') { e.preventDefault(); setActiveTab('campus'); }
+        else if (e.key === '6') { e.preventDefault(); setActiveTab('activity'); }
+      }
+    };
+    window.addEventListener('keydown', handleKeyNav);
+    return () => window.removeEventListener('keydown', handleKeyNav);
+  }, []);
+
   const openEditDetailsModal = async () => {
     if (!application) return;
     const cand = typeof application.candidateId === 'object' ? application.candidateId : null;
@@ -335,8 +365,22 @@ export const CandidateDetailPage = () => {
 
   const openInterviewModal = (round: any) => {
     setSelectedRound(round);
+    let outcomeVal = 'Scheduled';
+    if (['Passed', 'Selected'].includes(round.result || '') || ['Selected', 'Passed'].includes(round.currentStatus)) {
+      outcomeVal = 'Passed';
+    } else if (['Failed', 'Rejected'].includes(round.result || '') || ['Rejected', 'Failed'].includes(round.currentStatus)) {
+      outcomeVal = 'Rejected';
+    } else if (round.result === 'Absent' || round.currentStatus === 'Absent') {
+      outcomeVal = 'Absent';
+    } else if (round.result === 'On Hold' || round.currentStatus === 'On Hold') {
+      outcomeVal = 'On Hold';
+    } else if (round.currentStatus === 'Yet to Schedule') {
+      outcomeVal = 'Yet to Schedule';
+    }
+
     setInterviewForm({
-      currentStatus: round.currentStatus,
+      outcome: outcomeVal,
+      currentStatus: round.currentStatus || 'Yet to Schedule',
       scheduledDate: round.scheduledDate ? round.scheduledDate.substring(0, 10) : '',
       scheduledTime: round.scheduledTime || '',
       interviewMode: round.interviewMode || 'Online',
@@ -351,10 +395,31 @@ export const CandidateDetailPage = () => {
     if (!id || !selectedRound) return;
     setInterviewLoading(true);
     try {
-      await applicationsApi.updateInterview(id, selectedRound.roundId, interviewForm);
-      toast.success(`${selectedRound.roundName} updated!`);
+      const payload: any = { ...interviewForm };
+      if (interviewForm.outcome === 'Passed') {
+        payload.currentStatus = 'Selected';
+        payload.result = 'Passed';
+      } else if (interviewForm.outcome === 'Rejected') {
+        payload.currentStatus = 'Rejected';
+        payload.result = 'Rejected';
+      } else if (interviewForm.outcome === 'Absent') {
+        payload.currentStatus = 'Absent';
+        payload.result = 'Absent';
+      } else if (interviewForm.outcome === 'On Hold') {
+        payload.currentStatus = 'On Hold';
+        payload.result = 'On Hold';
+      } else if (interviewForm.outcome === 'Scheduled') {
+        payload.currentStatus = 'Scheduled';
+      } else if (interviewForm.outcome === 'Yet to Schedule') {
+        payload.currentStatus = 'Yet to Schedule';
+        payload.result = '';
+      }
+
+      await applicationsApi.updateInterview(id, selectedRound.roundId, payload);
+      toast.success(`${selectedRound.roundName} updated successfully!`);
       setShowInterviewModal(false);
-      await load();
+      window.dispatchEvent(new Event('fic:stats-refresh'));
+      await load(false);
     } catch (err: any) {
       toast.error(err.message || 'Failed to update interview.');
     } finally {
@@ -1122,6 +1187,42 @@ export const CandidateDetailPage = () => {
             </div>
           )}
 
+          {/* Step-by-Step Transition Validation Banner */}
+          {(() => {
+            const isAdvancedStage = [
+              'Selected',
+              'Enrollment Fee Pending',
+              'Loan Processing',
+              'Campus Reporting Pending',
+              'Arrived in Campus',
+            ].includes(newStatus);
+            const pendingMandatory = (a?.interviewRounds || []).filter(
+              (r) =>
+                r.isMandatory &&
+                !['Selected', 'Passed', 'Completed'].includes(r.currentStatus) &&
+                !['Selected', 'Passed'].includes(r.result || '')
+            );
+
+            if (isAdvancedStage && pendingMandatory.length > 0) {
+              return (
+                <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-3 text-xs text-amber-900 shadow-2xs">
+                  <p className="font-bold flex items-center gap-1.5 text-amber-800">
+                    <span>⚠️</span>
+                    <span>Step-by-Step Transition Required</span>
+                  </p>
+                  <p className="mt-1 leading-relaxed">
+                    Candidate cannot be marked as <strong>{newStatus}</strong>. Mandatory interview round(s) (
+                    <strong className="underline text-amber-900">
+                      {pendingMandatory.map((r) => r.roundName).join(', ')}
+                    </strong>
+                    ) must be evaluated and marked as Passed / Selected first.
+                  </p>
+                </div>
+              );
+            }
+            return null;
+          })()}
+
           <Textarea
             label="Remarks / Activity Note (Optional)"
             placeholder="Add specific context or follow-up notes..."
@@ -1130,98 +1231,172 @@ export const CandidateDetailPage = () => {
           />
           <div className="flex gap-3">
             <Button variant="secondary" className="flex-1" onClick={() => setShowStatusModal(false)}>Cancel</Button>
-            <Button className="flex-1" isLoading={statusLoading} onClick={handleStatusUpdate}>Save Status</Button>
+            {(() => {
+              const isAdvancedStage = [
+                'Selected',
+                'Enrollment Fee Pending',
+                'Loan Processing',
+                'Campus Reporting Pending',
+                'Arrived in Campus',
+              ].includes(newStatus);
+              const pendingMandatory = (a?.interviewRounds || []).filter(
+                (r) =>
+                  r.isMandatory &&
+                  !['Selected', 'Passed', 'Completed'].includes(r.currentStatus) &&
+                  !['Selected', 'Passed'].includes(r.result || '')
+              );
+              const isBlocked = isAdvancedStage && pendingMandatory.length > 0;
+
+              return (
+                <Button
+                  className="flex-1"
+                  isLoading={statusLoading}
+                  disabled={statusLoading || isBlocked}
+                  onClick={handleStatusUpdate}
+                >
+                  {isBlocked ? 'Interviews Incomplete' : 'Save Status'}
+                </Button>
+              );
+            })()}
           </div>
         </div>
       </Modal>
 
       {/* Interview Update Modal */}
-      <Modal isOpen={showInterviewModal} onClose={() => setShowInterviewModal(false)}
-        title={`Update ${selectedRound?.roundName} Interview`}>
-        <div className="space-y-4">
-          <div className="text-xs font-medium text-fic-navy bg-blue-50 px-3 py-1.5 rounded-lg mb-1">
-            Round: {selectedRound?.roundName}
-          </div>
-          {(() => {
-            const roundName = (selectedRound?.roundName || '').toLowerCase();
-            let statusOptions: string[];
-            if (roundName.includes('l1') || roundName.includes('aptitude') || roundName.includes('written')) {
-              statusOptions = ['Pending', 'Scheduled', 'Appeared', 'Passed', 'Failed', 'Absent', 'On Hold', 'Cancelled'];
-            } else if (roundName.includes('l2') || roundName.includes('hr') || roundName.includes('technical') || roundName.includes('manager')) {
-              statusOptions = ['Pending', 'Scheduled', 'Appeared', 'Selected', 'Rejected', 'On Hold', 'Absent', 'Cancelled'];
-            } else if (roundName.includes('document') || roundName.includes('doc')) {
-              statusOptions = ['Pending', 'Submitted', 'Verified', 'Incomplete', 'Rejected'];
-            } else if (roundName.includes('medical') || roundName.includes('health')) {
-              statusOptions = ['Pending', 'Scheduled', 'Fit', 'Unfit', 'On Hold'];
-            } else {
-              statusOptions = ['Pending', 'Scheduled', 'Appeared', 'Selected', 'Rejected', 'Passed', 'Failed', 'Absent', 'On Hold', 'Cancelled'];
+      <Modal
+        isOpen={showInterviewModal}
+        onClose={() => setShowInterviewModal(false)}
+        title={`Update ${selectedRound?.roundName} Interview`}
+      >
+        <div
+          className="space-y-4"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              const target = e.target as HTMLElement;
+              if (target.tagName === 'TEXTAREA' || target.getAttribute('type') === 'submit') return;
+              e.preventDefault();
+              const container = e.currentTarget;
+              const focusables = Array.from(
+                container.querySelectorAll<HTMLElement>(
+                  'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button[type="submit"]:not([disabled])'
+                )
+              );
+              const idx = focusables.indexOf(target);
+              if (idx > -1 && idx < focusables.length - 1) {
+                focusables[idx + 1].focus();
+              }
             }
-            return (
-              <div>
-                <label className="fic-label">Status *</label>
-                <select className="fic-input" value={interviewForm.currentStatus || ''}
-                  onChange={(e) => setInterviewForm({ ...interviewForm, currentStatus: e.target.value })}>
-                  <option value="">Select Status</option>
-                  {statusOptions.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-            );
-          })()}
-          <div className="grid grid-cols-2 gap-3">
+          }}
+        >
+          {/* Round Header Badge */}
+          <div className="flex items-center justify-between bg-blue-50/80 p-3 rounded-xl border border-blue-200">
+            <div>
+              <span className="text-xs font-bold text-fic-navy uppercase tracking-wider block">
+                Round: {selectedRound?.roundName}
+              </span>
+              <span className="text-[11px] text-slate-500">
+                {selectedRound?.isMandatory ? 'Mandatory Round (Required for Selection)' : 'Optional Round'}
+              </span>
+            </div>
+            <span
+              className={`text-xs px-2.5 py-1 rounded-full font-bold ${
+                interviewStatusBadge[selectedRound?.currentStatus as keyof typeof interviewStatusBadge] ||
+                'bg-slate-100 text-slate-700'
+              }`}
+            >
+              Current: {selectedRound?.currentStatus || 'Yet to Schedule'}
+            </span>
+          </div>
+
+          {/* Primary Action: Outcome / Result */}
+          <div>
+            <label className="fic-label font-bold text-slate-800">
+              Round Outcome / Decision *
+            </label>
+            <select
+              className="fic-input border-2 border-fic-navy/40 font-semibold text-slate-800 bg-white"
+              value={interviewForm.outcome || 'Scheduled'}
+              onChange={(e) => setInterviewForm({ ...interviewForm, outcome: e.target.value })}
+            >
+              <option value="Passed">✅ Passed / Selected (Round Cleared)</option>
+              <option value="Scheduled">📅 Scheduled (Set Date &amp; Time below)</option>
+              <option value="Rejected">❌ Failed / Rejected</option>
+              <option value="On Hold">⏳ On Hold (Re-evaluating)</option>
+              <option value="Absent">🚫 Absent / No Show</option>
+              <option value="Yet to Schedule">🔄 Reset to Yet to Schedule</option>
+            </select>
+            <p className="text-[11px] text-slate-500 mt-1">
+              Selecting <strong>Passed / Selected</strong> automatically advances the round status and candidate progress.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-100">
             <div>
               <label className="fic-label">Interview Date</label>
-              <input type="date" className="fic-input" value={interviewForm.scheduledDate || ''}
-                onChange={(e) => setInterviewForm({ ...interviewForm, scheduledDate: e.target.value })} />
+              <input
+                type="date"
+                className="fic-input"
+                value={interviewForm.scheduledDate || ''}
+                onChange={(e) => setInterviewForm({ ...interviewForm, scheduledDate: e.target.value })}
+              />
             </div>
             <div>
               <label className="fic-label">Time</label>
-              <input type="time" className="fic-input" value={interviewForm.scheduledTime || ''}
-                onChange={(e) => setInterviewForm({ ...interviewForm, scheduledTime: e.target.value })} />
+              <input
+                type="time"
+                className="fic-input"
+                value={interviewForm.scheduledTime || ''}
+                onChange={(e) => setInterviewForm({ ...interviewForm, scheduledTime: e.target.value })}
+              />
             </div>
           </div>
-          <Select
-            label="Interview Mode"
-            options={[{ value: 'Online', label: 'Online' }, { value: 'Offline', label: 'Offline' }, { value: 'Telephonic', label: 'Telephonic' }]}
-            value={interviewForm.interviewMode || 'Online'}
-            onChange={(e) => setInterviewForm({ ...interviewForm, interviewMode: e.target.value })}
-          />
-          <div>
-            <label className="fic-label">Venue / Link</label>
-            <input className="fic-input" placeholder="Meet link or venue..." value={interviewForm.venueOrLink || ''}
-              onChange={(e) => setInterviewForm({ ...interviewForm, venueOrLink: e.target.value })} />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="fic-label">Interview Mode</label>
+              <select
+                className="fic-input"
+                value={interviewForm.interviewMode || 'Online'}
+                onChange={(e) => setInterviewForm({ ...interviewForm, interviewMode: e.target.value })}
+              >
+                <option value="Online">Online</option>
+                <option value="Offline">Offline</option>
+                <option value="Telephonic">Telephonic</option>
+              </select>
+            </div>
+            <div>
+              <label className="fic-label">Venue / Meeting Link</label>
+              <input
+                className="fic-input"
+                placeholder="Google Meet link or campus venue..."
+                value={interviewForm.venueOrLink || ''}
+                onChange={(e) => setInterviewForm({ ...interviewForm, venueOrLink: e.target.value })}
+              />
+            </div>
           </div>
+
           <div>
-            <label className="fic-label">Result</label>
-            {(() => {
-              const roundName = (selectedRound?.roundName || '').toLowerCase();
-              let resultOptions: string[];
-              if (roundName.includes('l1') || roundName.includes('aptitude') || roundName.includes('written')) {
-                resultOptions = ['Passed', 'Failed', 'Absent', 'On Hold', 'Pending'];
-              } else if (roundName.includes('l2') || roundName.includes('hr') || roundName.includes('technical') || roundName.includes('manager')) {
-                resultOptions = ['Selected', 'Rejected', 'Absent', 'On Hold', 'Pending'];
-              } else if (roundName.includes('document') || roundName.includes('doc')) {
-                resultOptions = ['Verified', 'Incomplete', 'Rejected', 'Pending'];
-              } else if (roundName.includes('medical') || roundName.includes('health')) {
-                resultOptions = ['Fit', 'Unfit', 'On Hold', 'Pending'];
-              } else {
-                resultOptions = ['Selected', 'Passed', 'Rejected', 'Failed', 'Absent', 'On Hold', 'Pending'];
-              }
-              return (
-                <select className="fic-input" value={interviewForm.result || ''}
-                  onChange={(e) => setInterviewForm({ ...interviewForm, result: e.target.value })}>
-                  <option value="">Select Result</option>
-                  {resultOptions.map((r) => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                </select>
-              );
-            })()}
+            <label className="fic-label">Remarks / Interviewer Feedback</label>
+            <textarea
+              rows={2}
+              className="fic-input"
+              placeholder="Candidate performance, communication, scores..."
+              value={interviewForm.remarks || ''}
+              onChange={(e) => setInterviewForm({ ...interviewForm, remarks: e.target.value })}
+            />
           </div>
-          <Textarea label="Remarks" value={interviewForm.remarks || ''}
-            onChange={(e) => setInterviewForm({ ...interviewForm, remarks: e.target.value })} />
-          <div className="flex gap-3">
-            <Button variant="secondary" className="flex-1" onClick={() => setShowInterviewModal(false)}>Cancel</Button>
-            <Button className="flex-1" isLoading={interviewLoading} onClick={handleInterviewUpdate}>Update</Button>
+
+          <div className="flex gap-3 pt-2">
+            <Button variant="secondary" className="flex-1" onClick={() => setShowInterviewModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="flex-1 bg-fic-navy text-white hover:bg-slate-800"
+              isLoading={interviewLoading}
+              onClick={handleInterviewUpdate}
+            >
+              Save Round Outcome
+            </Button>
           </div>
         </div>
       </Modal>

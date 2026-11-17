@@ -65,11 +65,15 @@ export type InterviewRoundStatus =
   | 'Scheduled'
   | 'Completed'
   | 'Selected'
+  | 'Passed'
   | 'Rejected'
+  | 'Failed'
+  | 'Appeared'
   | 'Absent'
   | 'Dropped'
   | 'Not Applicable'
-  | 'On Hold';
+  | 'On Hold'
+  | 'Pending';
 
 export type ApplicationStatus =
   | 'Registered'
@@ -285,7 +289,7 @@ export const ALL_APPLICATION_STATUSES: ApplicationStatus[] = [
 ];
 
 export const ALL_INTERVIEW_STATUSES: InterviewRoundStatus[] = [
-  'Yet to Schedule', 'Scheduled', 'Completed', 'Selected', 'Rejected',
-  'Absent', 'Dropped', 'Not Applicable', 'On Hold',
+  'Yet to Schedule', 'Scheduled', 'Completed', 'Selected', 'Passed', 'Rejected', 'Failed', 'Appeared',
+  'Absent', 'Dropped', 'Not Applicable', 'On Hold', 'Pending',
 ];
 
