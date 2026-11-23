@@ -36,8 +36,8 @@ interface StatCardProps {
 }
 
 const cardItemVariants: Variants = {
-  hidden: { opacity: 0, y: 15 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.15 } },
 };
 
 const StatCard: React.FC<StatCardProps> = ({
@@ -48,18 +48,14 @@ const StatCard: React.FC<StatCardProps> = ({
   sub,
   duration = 1.2,
 }) => (
-  <motion.div
-    variants={cardItemVariants}
-    whileHover={{ y: -4, boxShadow: '0 12px 25px -6px rgba(15, 39, 68, 0.1)' }}
-    className="bg-white rounded-xl border border-fic-border p-3.5 sm:p-4 flex items-start gap-3 sm:gap-3.5 shadow-sm transition-all hover:border-slate-300 group cursor-default w-full"
+  <div
+    className="bg-white rounded-xl border border-fic-border p-3.5 sm:p-4 flex items-start gap-3 sm:gap-3.5 shadow-sm transition-all hover:border-slate-300 group cursor-default w-full hover:-translate-y-0.5"
   >
-    <motion.div
-      whileHover={{ scale: 1.1, rotate: [0, -6, 6, 0] }}
-      transition={{ duration: 0.3 }}
+    <div
       className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm ${color}`}
     >
       {icon}
-    </motion.div>
+    </div>
     <div className="min-w-0 flex-1">
       <div className="text-xs sm:text-xs text-slate-500 font-medium truncate">{title}</div>
       <div className="text-xl sm:text-2xl font-extrabold text-slate-800 leading-tight tracking-tight mt-0.5">
@@ -71,7 +67,7 @@ const StatCard: React.FC<StatCardProps> = ({
       </div>
       {sub && <div className="text-[11px] sm:text-xs text-slate-400 mt-0.5 truncate">{sub}</div>}
     </div>
-  </motion.div>
+  </div>
 );
 
 export const DashboardPage = () => {
@@ -104,19 +100,15 @@ export const DashboardPage = () => {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      transition: {
-        staggerChildren: 0.07,
-        delayChildren: 0.05,
-      },
+      transition: { duration: 0.15 },
     },
   };
 
   const sectionVariants: Variants = {
-    hidden: { opacity: 0, y: 16 },
+    hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      y: 0,
-      transition: { duration: 0.45, ease: 'easeOut' },
+      transition: { duration: 0.15 },
     },
   };
 

@@ -248,22 +248,16 @@ export const PlacementPipelineTimeline: React.FC<PlacementPipelineTimelineProps>
         {/* Background Connector Line */}
         <div className="absolute top-9 left-6 right-6 h-1.5 bg-slate-100 rounded-full hidden md:block" />
 
-        {/* Animated Active Connector Line */}
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: '85%' }}
-          transition={{ duration: 1.2, ease: 'easeOut' }}
-          className="absolute top-9 left-6 h-1.5 bg-gradient-to-r from-blue-600 via-emerald-500 to-fic-yellow rounded-full hidden md:block shadow-xs"
+        {/* Active Connector Line */}
+        <div
+          className="absolute top-9 left-6 w-[85%] h-1.5 bg-gradient-to-r from-blue-600 via-emerald-500 to-fic-yellow rounded-full hidden md:block shadow-xs"
         />
 
         {/* Stages Carousel/Grid */}
         <div className="flex sm:grid sm:grid-cols-3 lg:grid-cols-5 overflow-x-auto sm:overflow-visible pb-3 sm:pb-0 gap-3 sm:gap-4 relative z-10 scrollbar-none snap-x">
-          {stages.map((stage, idx) => (
-            <motion.div
+          {stages.map((stage) => (
+            <div
               key={stage.id}
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.1, duration: 0.4 }}
               onClick={() => setSelectedStage(stage)}
               className="flex flex-col items-center text-center p-3 rounded-xl hover:bg-blue-50/60 cursor-pointer border border-slate-200/60 sm:border-transparent hover:border-blue-200 hover:shadow-md transition-all group select-none min-w-[140px] sm:min-w-0 flex-1 snap-start bg-slate-50/50 sm:bg-transparent"
               title="Click to view candidate contacts"
@@ -295,7 +289,7 @@ export const PlacementPipelineTimeline: React.FC<PlacementPipelineTimelineProps>
               <div className="text-[10px] text-blue-600 opacity-0 group-hover:opacity-100 font-medium mt-1.5 transition-opacity">
                 Click to view
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
       </div>

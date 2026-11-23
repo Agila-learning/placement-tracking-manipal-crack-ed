@@ -19,9 +19,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const logout = useCallback(async () => {
+    try {
+      await authApi.logout();
+    } catch { /* ignore */ }
+    localStorage.removeItem('fic_token');
+    localStorage.removeItem('fic_login_date');
+    localStorage.removeItem('fic_login_time');
+    setToken(null);
+    setUser(null);
+  }, []);
+
   const bootstrapAuth = useCallback(async () => {
     const storedToken = localStorage.getItem('fic_token');
-    if (!storedToken) {
+    const storedLoginDate = localStorage.getItem('fic_login_date');
+    const storedLoginTime = Number(localStorage.getItem('fic_login_time') || 0);
+    const todayDate = new Date().toISOString().slice(0, 10);
+
+    // Auto logout if login date was from a previous day or exceeded 24 hours
+    const isDailyExpired = !storedLoginDate || storedLoginDate !== todayDate || (Date.now() - storedLoginTime > 24 * 60 * 60 * 1000);
+
+    if (!storedToken || isDailyExpired) {
+      localStorage.removeItem('fic_token');
+      localStorage.removeItem('fic_login_date');
+      localStorage.removeItem('fic_login_time');
+      setToken(null);
+      setUser(null);
       setIsLoading(false);
       return;
     }
@@ -32,10 +55,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(res.data);
       } else {
         localStorage.removeItem('fic_token');
+        localStorage.removeItem('fic_login_date');
+        localStorage.removeItem('fic_login_time');
         setToken(null);
       }
     } catch {
       localStorage.removeItem('fic_token');
+      localStorage.removeItem('fic_login_date');
+      localStorage.removeItem('fic_login_time');
       setToken(null);
     } finally {
       setIsLoading(false);
@@ -46,22 +73,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     bootstrapAuth();
   }, [bootstrapAuth]);
 
+  // Periodic and on-focus check for daily automatic logout
+  useEffect(() => {
+    const checkDailyExpiry = () => {
+      const currentToken = localStorage.getItem('fic_token');
+      if (!currentToken) return;
+
+      const storedLoginDate = localStorage.getItem('fic_login_date');
+      const storedLoginTime = Number(localStorage.getItem('fic_login_time') || 0);
+      const todayDate = new Date().toISOString().slice(0, 10);
+
+      if (!storedLoginDate || storedLoginDate !== todayDate || (Date.now() - storedLoginTime > 24 * 60 * 60 * 1000)) {
+        logout();
+      }
+    };
+
+    const interval = setInterval(checkDailyExpiry, 30000);
+    window.addEventListener('focus', checkDailyExpiry);
+    document.addEventListener('visibilitychange', checkDailyExpiry);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', checkDailyExpiry);
+      document.removeEventListener('visibilitychange', checkDailyExpiry);
+    };
+  }, [logout]);
+
   const login = async (identifier: string, password: string) => {
     const res = await authApi.login(identifier, password);
     if (res.success && res.data) {
+      const todayDate = new Date().toISOString().slice(0, 10);
       localStorage.setItem('fic_token', res.data.token);
+      localStorage.setItem('fic_login_date', todayDate);
+      localStorage.setItem('fic_login_time', String(Date.now()));
       setToken(res.data.token);
       setUser(res.data.user);
     }
-  };
-
-  const logout = async () => {
-    try {
-      await authApi.logout();
-    } catch { /* ignore */ }
-    localStorage.removeItem('fic_token');
-    setToken(null);
-    setUser(null);
   };
 
   const hasRole = (...roles: string[]) => {

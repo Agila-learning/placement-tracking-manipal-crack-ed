@@ -58,9 +58,9 @@ export const LoginPage = () => {
 
       {/* ── LEFT PANEL: Brand hero (hidden on mobile) ── */}
       <motion.div
-        initial={{ opacity: 0, x: -40 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.8, ease: 'easeOut' }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.2 }}
         className="hidden lg:flex lg:w-[58%] xl:w-[60%] relative flex-col overflow-hidden bg-gradient-to-br from-[#061426] via-[#0B2343] to-[#123663]"
       >
         {/* Subtle decorative modern geometric grid and glowing ambient nodes */}
@@ -123,18 +123,15 @@ export const LoginPage = () => {
                 { icon: <Users className="w-4 h-4" />, text: 'End-to-end candidate lifecycle management' },
                 { icon: <Award className="w-4 h-4" />, text: 'Trusted by 15,000+ banking professionals' },
               ].map((item, i) => (
-                <motion.div
+                <div
                   key={i}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.4 + i * 0.1, duration: 0.5 }}
                   className="flex items-center gap-3 text-white/85 text-sm"
                 >
                   <div className="w-8 h-8 rounded-lg bg-white/10 backdrop-blur-xs flex items-center justify-center flex-shrink-0 text-fic-yellow border border-white/10">
                     {item.icon}
                   </div>
                   <span>{item.text}</span>
-                </motion.div>
+                </div>
               ))}
             </div>
           </div>
@@ -176,9 +173,9 @@ export const LoginPage = () => {
         {/* Centered form area */}
         <div className="flex-1 flex items-center justify-center px-4 sm:px-6 py-6 sm:py-10">
           <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.15, ease: 'easeOut' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.2 }}
             className="w-full max-w-sm"
           >
             {/* Card */}
@@ -216,7 +213,7 @@ export const LoginPage = () => {
                       <input
                         type="text"
                         className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-fic-navy/40 focus:border-fic-navy transition-all bg-slate-50 hover:bg-white"
-                        placeholder="Mobile Number (e.g. 6369406416)"
+                        placeholder="Mobile Number"
                         value={identifier}
                         onChange={(e) => setIdentifier(e.target.value)}
                         autoComplete="tel"

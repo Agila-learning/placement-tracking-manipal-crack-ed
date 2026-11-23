@@ -34,27 +34,20 @@ export const CorporateHeroBanner: React.FC<CorporateHeroBannerProps> = ({
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      transition: {
-        staggerChildren: 0.08,
-        delayChildren: 0.05,
-      },
+      transition: { duration: 0.15 },
     },
   };
 
   const itemVariants: Variants = {
-    hidden: { opacity: 0, y: 10 },
+    hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      y: 0,
-      transition: { duration: 0.4, ease: 'easeOut' },
+      transition: { duration: 0.15 },
     },
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: 'easeOut' }}
+    <div
       className="relative w-full rounded-2xl overflow-hidden shadow-xl mb-6 bg-gradient-to-r from-[#001D4A] via-[#003882] to-[#0A5BC4] text-white border border-blue-400/25 select-none"
     >
       {/* ── Background Luminous Ribbons & Dot Grid ── */}
@@ -209,7 +202,7 @@ export const CorporateHeroBanner: React.FC<CorporateHeroBannerProps> = ({
           </motion.div>
         </div>
       </motion.div>
-    </motion.div>
+    </div>
   );
 };
 
