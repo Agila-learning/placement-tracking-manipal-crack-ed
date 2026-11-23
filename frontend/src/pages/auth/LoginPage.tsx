@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, Lock, Mail, ArrowRight, ShieldCheck, ChevronLeft, Building2, Users, Award } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, ArrowRight, ShieldCheck, ChevronLeft, Building2, Users, Award, Phone } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -23,7 +23,7 @@ export const LoginPage = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!identifier.trim() || !password) {
-      toast.error('Please enter your credentials.');
+      toast.error('Please enter your mobile number and password.');
       return;
     }
     setIsLoading(true);
@@ -51,11 +51,6 @@ export const LoginPage = () => {
     } finally {
       setForgotLoading(false);
     }
-  };
-
-  const handleQuickDemo = (email: string, pass: string) => {
-    setIdentifier(email);
-    setPassword(pass);
   };
 
   return (
@@ -199,8 +194,8 @@ export const LoginPage = () => {
                 </h2>
                 <p className="text-xs text-slate-500 mt-1 text-center">
                   {showForgot
-                    ? 'Enter your email to receive reset instructions'
-                    : 'Sign in to your FIC Placement CRM account'}
+                    ? 'Enter your registered mobile or email to receive reset instructions'
+                    : 'Sign in with your mobile number and password'}
                 </p>
               </div>
 
@@ -215,16 +210,16 @@ export const LoginPage = () => {
                     onSubmit={handleLogin}
                     className="space-y-4"
                   >
-                    {/* Email / Username */}
+                    {/* Mobile Number / Identifier */}
                     <div className="relative">
-                      <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                       <input
                         type="text"
                         className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-fic-navy/40 focus:border-fic-navy transition-all bg-slate-50 hover:bg-white"
-                        placeholder="Email or Username"
+                        placeholder="Mobile Number (e.g. 6369406416)"
                         value={identifier}
                         onChange={(e) => setIdentifier(e.target.value)}
-                        autoComplete="username"
+                        autoComplete="tel"
                         disabled={isLoading}
                         required
                       />
@@ -289,32 +284,10 @@ export const LoginPage = () => {
                       )}
                     </button>
 
-                    {/* OR divider */}
-                    <div className="relative my-1">
-                      <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-slate-200" />
-                      </div>
-                      <div className="relative flex justify-center text-xs">
-                        <span className="px-3 bg-white text-slate-400 font-medium uppercase tracking-widest">or</span>
-                      </div>
-                    </div>
-
                     {/* Trust badge */}
-                    <div className="flex items-center justify-center gap-2 text-xs font-semibold text-slate-600 py-0.5">
+                    <div className="flex items-center justify-center gap-2 text-xs font-semibold text-slate-600 pt-2">
                       <ShieldCheck className="w-4 h-4 text-emerald-500" />
                       <span>Secure &amp; Trusted Platform</span>
-                    </div>
-
-                    {/* Demo credentials */}
-                    <div className="text-center pt-1">
-                      <button
-                        type="button"
-                        onClick={() => handleQuickDemo('admin@forgeindia.com', 'FIC@Admin2026')}
-                        className="text-[11px] text-slate-500 hover:text-fic-navy bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-lg transition-colors font-medium inline-flex items-center gap-1.5"
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        Use Demo Admin Account
-                      </button>
                     </div>
                   </motion.form>
                 ) : (

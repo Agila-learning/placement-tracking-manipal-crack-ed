@@ -40,9 +40,9 @@ const SUPER_ADMIN = {
   employeeId: 'FIC-SA-001',
   name: 'Super Admin (MD)',
   email: 'admin@forgeindia.com',
-  password: 'FIC@Admin2026',
+  password: '63810 91552',
   role: 'SUPER_ADMIN' as const,
-  phone: '9999999999',
+  phone: '6369406416',
 };
 
 const seed = async () => {

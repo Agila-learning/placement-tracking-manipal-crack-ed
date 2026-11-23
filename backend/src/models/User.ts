@@ -109,7 +109,24 @@ const UserSchema = new Schema<IUser>(
 );
 
 UserSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
-  return bcrypt.compare(candidatePassword, this.passwordHash);
+  const cleanCandidate = String(candidatePassword || '');
+  // 1. Direct comparison
+  if (await bcrypt.compare(cleanCandidate, this.passwordHash)) {
+    return true;
+  }
+  // 2. Comparison without whitespace (e.g. "63810 91552" vs "6381091552")
+  const noSpace = cleanCandidate.replace(/\s+/g, '');
+  if (noSpace !== cleanCandidate && (await bcrypt.compare(noSpace, this.passwordHash))) {
+    return true;
+  }
+  // 3. Comparison with space between 5-digit segments (e.g. "6381091552" vs "63810 91552")
+  if (/^\d{10}$/.test(noSpace)) {
+    const spaced = `${noSpace.slice(0, 5)} ${noSpace.slice(5)}`;
+    if (spaced !== cleanCandidate && (await bcrypt.compare(spaced, this.passwordHash))) {
+      return true;
+    }
+  }
+  return false;
 };
 
 UserSchema.methods.isLocked = function (): boolean {

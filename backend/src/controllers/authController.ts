@@ -10,21 +10,35 @@ import { logActivity } from '../utils/auditLogger';
 
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { identifier, password } = req.body; // identifier can be email or employeeId
+    const { identifier, password } = req.body; // identifier can be mobile number, email, or employeeId
 
     if (!identifier || !password) {
-      sendError(res, 'Email/Employee ID and Password are required.', 400);
+      sendError(res, 'Mobile number / Email and Password are required.', 400);
       return;
     }
 
-    const cleanIdentifier = identifier.trim().toLowerCase();
+    const trimmed = String(identifier).trim();
+    const cleanIdentifier = trimmed.toLowerCase();
+    const digitsOnly = trimmed.replace(/\D/g, '');
 
-    // Find user by email or uppercase employeeId
+    const orConditions: any[] = [
+      { email: cleanIdentifier },
+      { employeeId: trimmed.toUpperCase() },
+      { phone: trimmed },
+    ];
+
+    if (digitsOnly.length >= 10) {
+      const tenDigit = digitsOnly.slice(-10);
+      orConditions.push({ phone: digitsOnly });
+      orConditions.push({ phone: tenDigit });
+      orConditions.push({ phone: `+91${tenDigit}` });
+      orConditions.push({ phone: `+91 ${tenDigit}` });
+      orConditions.push({ phone: { $regex: `${tenDigit}$` } });
+    }
+
+    // Find user by mobile number, email, or uppercase employeeId
     const user = await User.findOne({
-      $or: [
-        { email: cleanIdentifier },
-        { employeeId: identifier.trim().toUpperCase() },
-      ],
+      $or: orConditions,
     }).select('+passwordHash');
 
     if (!user) {
