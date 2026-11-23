@@ -247,7 +247,11 @@ export const registerCandidateAndApplication = async (req: Request, res: Respons
           paymentRoute: finalPaymentRoute,
           overallStatus: 'Registered',
           interviewRounds,
-          registrationDate: new Date(),
+          processType: req.body.processType || (vendorName.toLowerCase().includes('crack') ? 'Crack-ed' : 'Manipal'),
+          processDates: {
+            registration: req.body.registrationDate ? new Date(req.body.registrationDate) : new Date(),
+          },
+          registrationDate: req.body.registrationDate ? new Date(req.body.registrationDate) : new Date(),
         },
       ],
       { session }
@@ -392,6 +396,7 @@ export const getApplications = async (req: Request, res: Response): Promise<void
       search,
       fromDate,
       toDate,
+      processType,
       sortBy = 'registrationDate',
       sortOrder = '-1',
     } = req.query;
@@ -407,6 +412,22 @@ export const getApplications = async (req: Request, res: Response): Promise<void
     if (vendor) filter.vendorName = { $regex: String(vendor), $options: 'i' };
     if (hr) filter.hrReferenceName = { $regex: String(hr), $options: 'i' };
     if (status) filter.overallStatus = String(status);
+    if (processType) {
+      if (String(processType).toLowerCase().includes('crack')) {
+        filter.$or = [
+          { processType: { $regex: 'crack', $options: 'i' } },
+          { vendorName: { $regex: 'crack', $options: 'i' } },
+        ];
+      } else if (String(processType).toLowerCase().includes('manipal')) {
+        filter.$or = [
+          { processType: { $regex: 'manipal', $options: 'i' } },
+          { vendorName: { $regex: 'manipal', $options: 'i' } },
+          { processType: { $exists: false }, vendorName: { $not: { $regex: 'crack', $options: 'i' } } },
+        ];
+      } else {
+        filter.processType = { $regex: String(processType), $options: 'i' };
+      }
+    }
 
     if (fromDate || toDate) {
       filter.registrationDate = {};
@@ -431,7 +452,7 @@ export const getApplications = async (req: Request, res: Response): Promise<void
     const [applications, total] = await Promise.all([
       Application.find(filter)
         .select(
-          'applicationNumber candidateName candidateEmail candidateMobile bankName programName vendorName hrReferenceName batchNumber overallStatus interviewRounds paymentRoute registrationDate updatedAt'
+          'applicationNumber candidateName candidateEmail candidateMobile bankName programName vendorName hrReferenceName batchNumber overallStatus interviewRounds paymentRoute registrationDate processType processDates updatedAt'
         )
         .sort(sort)
         .skip(skip)
@@ -551,7 +572,7 @@ export const getApplicationById = async (req: Request, res: Response): Promise<v
 export const updateApplicationStatus = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { overallStatus, remarks } = req.body;
+    const { overallStatus, remarks, statusDate } = req.body;
 
     if (!overallStatus) {
       sendError(res, 'Overall status is required.', 400);
@@ -598,6 +619,16 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
     application.overallStatus = overallStatus;
     if (remarks) application.remarks = remarks;
 
+    const effectiveDate = statusDate ? new Date(statusDate) : new Date();
+    if (!application.processDates) application.processDates = {};
+    const statusSlug = overallStatus.replace(/[\s-]+/g, '_').toLowerCase();
+    application.processDates = {
+      ...application.processDates,
+      [statusSlug]: effectiveDate,
+      lastUpdatedDate: effectiveDate,
+    };
+    application.markModified('processDates');
+
     await application.save();
 
     // Auto-sync CampusStatus if overallStatus changed to campus-related milestone
@@ -606,7 +637,7 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
         { applicationId: application._id },
         {
           campusStatus: 'Arrived in Campus',
-          arrivalDate: new Date(),
+          arrivalDate: effectiveDate,
           applicationNumber: application.applicationNumber,
           candidateId: application.candidateId,
         },
@@ -800,6 +831,15 @@ export const updateCandidateAndApplicationDetails = async (req: Request, res: Re
     if (mobileNumber) application.candidateMobile = mobileNumber.trim();
     if (batchNumber !== undefined) application.batchNumber = batchNumber.trim();
     if (remarks !== undefined) application.remarks = remarks.trim();
+    if (req.body.processType) application.processType = req.body.processType.trim();
+    if (req.body.registrationDate) application.registrationDate = new Date(req.body.registrationDate);
+    if (req.body.processDates) {
+      application.processDates = {
+        ...(application.processDates || {}),
+        ...req.body.processDates,
+      };
+      application.markModified('processDates');
+    }
     await application.save();
 
     // Update underlying Candidate profile

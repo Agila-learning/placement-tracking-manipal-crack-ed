@@ -239,6 +239,8 @@ export interface Application {
   programName: string;
   vendorId?: string;
   vendorName: string;
+  processType?: string;
+  processDates?: Record<string, any>;
   hrReferenceId?: string;
   hrReferenceName: string;
   batchNumber?: string;

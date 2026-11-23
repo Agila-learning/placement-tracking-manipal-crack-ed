@@ -44,6 +44,8 @@ export const RegisterCandidateModal: React.FC<Props> = ({ isOpen, onClose, onSuc
     hrReferenceId: '',
     batchNumber: '',
     paymentRoute: 'ROUTE_A_VENDOR_LOAN',
+    processType: 'Manipal',
+    registrationDate: new Date().toISOString().slice(0, 10),
     resume: null as File | null,
   });
 
@@ -144,6 +146,8 @@ export const RegisterCandidateModal: React.FC<Props> = ({ isOpen, onClose, onSuc
       if (form.hrReferenceId) fd.append('hrReferenceId', form.hrReferenceId);
       if (form.batchNumber) fd.append('batchNumber', form.batchNumber);
       fd.append('paymentRoute', form.paymentRoute);
+      if (form.processType) fd.append('processType', form.processType);
+      if (form.registrationDate) fd.append('registrationDate', form.registrationDate);
       if (existingCandidateId) fd.append('existingCandidateId', existingCandidateId);
       if (form.resume) fd.append('resume', form.resume);
 
@@ -266,6 +270,22 @@ export const RegisterCandidateModal: React.FC<Props> = ({ isOpen, onClose, onSuc
               value={form.hrReferenceId}
               onChange={(e) => handleChange('hrReferenceId', e.target.value)}
               placeholder="Select HR"
+            />
+            <Select
+              label="Process Type *"
+              options={[
+                { value: 'Manipal', label: '🎓 Manipal Process' },
+                { value: 'Crack-ed', label: '⚡ Crack-ED Process' },
+              ]}
+              value={form.processType}
+              onChange={(e) => handleChange('processType', e.target.value)}
+              required
+            />
+            <Input
+              label="Process / Registration Date (Optional)"
+              type="date"
+              value={form.registrationDate}
+              onChange={(e) => handleChange('registrationDate', e.target.value)}
             />
             <Input label="Batch Number" placeholder="Optional batch" value={form.batchNumber}
               onChange={(e) => handleChange('batchNumber', e.target.value)} />

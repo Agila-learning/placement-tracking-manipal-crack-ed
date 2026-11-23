@@ -39,6 +39,7 @@ export const CandidatesPage = () => {
     const params = new URLSearchParams(window.location.search);
     return params.get('status') || '';
   });
+  const [filterProcess, setFilterProcess] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
 
@@ -74,6 +75,7 @@ export const CandidatesPage = () => {
       if (filterVendor) params.vendor = filterVendor;
       if (filterHR) params.hr = filterHR;
       if (filterStatus) params.status = filterStatus;
+      if (filterProcess) params.processType = filterProcess;
       if (fromDate) params.fromDate = fromDate;
       if (toDate) params.toDate = toDate;
 
@@ -89,7 +91,7 @@ export const CandidatesPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [search, filterBank, filterProgram, filterVendor, filterHR, filterStatus, fromDate, toDate]);
+  }, [search, filterProcess, filterBank, filterProgram, filterVendor, filterHR, filterStatus, fromDate, toDate]);
 
   useEffect(() => {
     loadMasters();
@@ -108,10 +110,11 @@ export const CandidatesPage = () => {
   useEffect(() => {
     const timer = setTimeout(() => loadApplications(1), 350);
     return () => clearTimeout(timer);
-  }, [search, filterBank, filterProgram, filterVendor, filterHR, filterStatus, fromDate, toDate]);
+  }, [search, filterProcess, filterBank, filterProgram, filterVendor, filterHR, filterStatus, fromDate, toDate]);
 
   const clearFilters = () => {
     setSearch('');
+    setFilterProcess('');
     setFilterBank('');
     setFilterProgram('');
     setFilterVendor('');
@@ -138,6 +141,7 @@ export const CandidatesPage = () => {
       if (filterVendor) params.vendorId = filterVendor;
       if (filterHR) params.hr = filterHR;
       if (filterStatus) params.status = filterStatus;
+      if (filterProcess) params.processType = filterProcess;
       if (fromDate) params.fromDate = fromDate;
       if (toDate) params.toDate = toDate;
 
@@ -272,6 +276,18 @@ export const CandidatesPage = () => {
           </div>
           <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
             <select
+              className="fic-input flex-1 sm:flex-initial sm:w-auto h-9 text-sm font-semibold"
+              value={filterProcess}
+              onChange={(e) => {
+                setFilterProcess(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All Processes</option>
+              <option value="Manipal">🎓 Manipal Process</option>
+              <option value="Crack-ed">⚡ Crack-ED Process</option>
+            </select>
+            <select
               className="fic-input flex-1 sm:flex-initial sm:w-auto h-9 text-sm font-medium"
               value={filterStatus}
               onChange={(e) => {
@@ -307,7 +323,7 @@ export const CandidatesPage = () => {
               onClick={() => setShowFilters(!showFilters)}>
               {showFilters ? 'Hide' : 'More'} Filters
             </Button>
-            {(search || filterBank || filterProgram || filterVendor || filterHR || filterStatus || fromDate || toDate) && (
+            {(search || filterProcess || filterBank || filterProgram || filterVendor || filterHR || filterStatus || fromDate || toDate) && (
               <Button variant="ghost" size="sm" onClick={clearFilters}>
                 Clear
               </Button>
@@ -373,6 +389,7 @@ export const CandidatesPage = () => {
                 <tr>
                   <th className="fic-table-header sticky-header-1 w-40">Candidate</th>
                   <th className="fic-table-header sticky-header-2 w-36">App No.</th>
+                  <th className="fic-table-header w-28 text-center">Process</th>
                   <th className="fic-table-header">Bank</th>
                   <th className="fic-table-header">Program</th>
                   <th className="fic-table-header">Vendor</th>
@@ -407,6 +424,24 @@ export const CandidatesPage = () => {
                         <span className="font-mono text-xs text-fic-navy bg-blue-50 px-1.5 py-0.5 rounded">
                           {app.applicationNumber}
                         </span>
+                      </td>
+                      <td className="fic-table-cell text-center">
+                        {(() => {
+                          const isCracked = app.processType
+                            ? /crack/i.test(app.processType)
+                            : /crack/i.test(app.vendorName || '') || /crack/i.test(app.programName || '');
+                          return isCracked ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-emerald-50 text-emerald-800 border-2 border-emerald-300 shadow-2xs whitespace-nowrap">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                              Crack-ED
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-blue-50 text-blue-800 border-2 border-blue-300 shadow-2xs whitespace-nowrap">
+                              <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+                              Manipal
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="fic-table-cell">
                         <span className="text-xs text-slate-700 whitespace-nowrap">{app.bankName}</span>

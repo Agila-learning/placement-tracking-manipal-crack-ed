@@ -77,6 +77,8 @@ export interface IApplication extends Document {
   programName: string;
   vendorId?: Types.ObjectId;
   vendorName: string; // e.g. Manipal, Crack-ed, Custom
+  processType?: string; // Manipal | Crack-ed
+  processDates?: Record<string, any>; // optional process milestone dates
   hrReferenceId?: Types.ObjectId;
   hrReferenceName: string;
   batchNumber?: string;
@@ -246,6 +248,16 @@ const ApplicationSchema = new Schema<IApplication>(
       required: true,
       trim: true,
       index: true,
+    },
+    processType: {
+      type: String,
+      trim: true,
+      default: 'Manipal',
+      index: true,
+    },
+    processDates: {
+      type: Schema.Types.Mixed,
+      default: {},
     },
     hrReferenceId: {
       type: Schema.Types.ObjectId,

@@ -115,7 +115,10 @@ export const CandidateDetailPage = () => {
     paymentRoute: 'ROUTE_A_VENDOR_LOAN',
     batchNumber: '',
     remarks: '',
+    processType: 'Manipal',
+    registrationDate: '',
   });
+  const [statusDate, setStatusDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [detailsLoading, setDetailsLoading] = useState(false);
 
   // Verify transaction loading set
@@ -279,6 +282,8 @@ export const CandidateDetailPage = () => {
         paymentRoute: application.paymentRoute || 'ROUTE_A_VENDOR_LOAN',
         batchNumber: application.batchNumber || '',
         remarks: application.remarks || '',
+        processType: application.processType || (/crack/i.test(application.vendorName || '') ? 'Crack-ed' : 'Manipal'),
+        registrationDate: application.registrationDate ? application.registrationDate.substring(0, 10) : '',
       });
 
       if (currentBankId) {
@@ -370,7 +375,7 @@ export const CandidateDetailPage = () => {
         const followUpText = holdFollowUpDate ? ` [Target Follow-up: ${holdFollowUpDate}]` : '';
         finalRemarks = `[ON HOLD: ${holdReason}]${followUpText}${finalRemarks ? ` — ${finalRemarks}` : ''}`;
       }
-      await applicationsApi.updateStatus(id, { overallStatus: newStatus, remarks: finalRemarks });
+      await applicationsApi.updateStatus(id, { overallStatus: newStatus, remarks: finalRemarks, statusDate });
       toast.success(`Candidate status updated to ${newStatus}!`);
       setShowStatusModal(false);
       await load();
@@ -736,6 +741,22 @@ export const CandidateDetailPage = () => {
                 )}
               </span>
               <Badge className={appStatusBadge[a.overallStatus]}>{a.overallStatus}</Badge>
+              {(() => {
+                const isCracked = a.processType
+                  ? /crack/i.test(a.processType)
+                  : /crack/i.test(a.vendorName || '') || /crack/i.test(a.programName || '');
+                return isCracked ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-50 text-emerald-800 border-2 border-emerald-300 shadow-2xs">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    Crack-ED Process
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-blue-50 text-blue-800 border-2 border-blue-300 shadow-2xs">
+                    <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+                    Manipal Process
+                  </span>
+                );
+              })()}
               <span className="text-xs text-slate-400">Reg: {formatDate(a.registrationDate)}</span>
             </div>
           </div>
@@ -775,8 +796,12 @@ export const CandidateDetailPage = () => {
       </div>
 
       {/* Quick Info Bar */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
         {[
+          {
+            label: 'Process',
+            value: (/crack/i.test(a.processType || a.vendorName || '') ? 'Crack-ED Process' : 'Manipal Process'),
+          },
           { label: 'Bank', value: a.bankName },
           { label: 'Program', value: a.programName },
           { label: 'Vendor', value: a.vendorName },
@@ -1379,6 +1404,19 @@ export const CandidateDetailPage = () => {
                 <option value="Not Interested">🚫 Not Interested</option>
               </optgroup>
             </select>
+          </div>
+
+          <div>
+            <label className="fic-label">Process / Status Effective Date (Optional)</label>
+            <input
+              type="date"
+              className="fic-input text-xs"
+              value={statusDate}
+              onChange={(e) => setStatusDate(e.target.value)}
+            />
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              Enter the date this process milestone was completed or scheduled (optional, for maintaining proper records).
+            </p>
           </div>
 
           {/* Intelligent On Hold Tracker Box */}
@@ -2209,6 +2247,28 @@ export const CandidateDetailPage = () => {
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="fic-label">Process Type *</label>
+                <select
+                  className="fic-input font-bold"
+                  value={detailsForm.processType}
+                  onChange={(e) => setDetailsForm({ ...detailsForm, processType: e.target.value })}
+                >
+                  <option value="Manipal">🎓 Manipal Process</option>
+                  <option value="Crack-ed">⚡ Crack-ED Process</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="fic-label">Process / Registration Date (Optional)</label>
+                <input
+                  type="date"
+                  className="fic-input"
+                  value={detailsForm.registrationDate}
+                  onChange={(e) => setDetailsForm({ ...detailsForm, registrationDate: e.target.value })}
+                />
               </div>
 
               <div className="sm:col-span-2">

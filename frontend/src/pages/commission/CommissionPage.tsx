@@ -1379,7 +1379,7 @@ export const CommissionPage = () => {
                             Email: {item.email}
                           </div>
                           <div style={{ fontSize: '11px', color: '#1f2937', paddingLeft: '14px' }}>
-                            Mobile: -{item.mobile}
+                            Mobile: {item.mobile}
                           </div>
                         </td>
                         <td
