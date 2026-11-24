@@ -16,7 +16,7 @@ import { ImportCandidatesModal } from './ImportCandidatesModal';
 export const CandidatesPage = () => {
   const navigate = useNavigate();
   const toast = useToast();
-  const { hasRole } = useAuth();
+  const { user, hasRole } = useAuth();
 
   const [applications, setApplications] = useState<Application[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -189,8 +189,8 @@ export const CandidatesPage = () => {
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Candidate Tracking"
-        description={`${total} application${total !== 1 ? 's' : ''} found`}
+        title={user?.role === 'HR_EXECUTIVE' ? "My Candidate Tracking" : "Candidate Tracking"}
+        description={user?.role === 'HR_EXECUTIVE' ? `Showing your assigned candidates (${total} found)` : `${total} application${total !== 1 ? 's' : ''} found`}
         actions={
           <>
             <Button variant="secondary" size="sm" leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
@@ -345,10 +345,12 @@ export const CandidatesPage = () => {
               <option value="">All Vendors</option>
               {vendors.map((v) => <option key={v._id} value={v.name}>{v.name}</option>)}
             </select>
-            <select className="fic-input text-sm h-9" value={filterHR} onChange={(e) => setFilterHR(e.target.value)}>
-              <option value="">All HR</option>
-              {hrList.map((h) => <option key={h.id} value={h.name}>{h.name}</option>)}
-            </select>
+            {user?.role !== 'HR_EXECUTIVE' && (
+              <select className="fic-input text-sm h-9" value={filterHR} onChange={(e) => setFilterHR(e.target.value)}>
+                <option value="">All HR</option>
+                {hrList.map((h) => <option key={h.id} value={h.name}>{h.name}</option>)}
+              </select>
+            )}
             <input type="date" className="fic-input text-sm h-9" value={fromDate} onChange={(e) => setFromDate(e.target.value)} placeholder="From Date" />
             <input type="date" className="fic-input text-sm h-9" value={toDate} onChange={(e) => setToDate(e.target.value)} placeholder="To Date" />
           </div>
@@ -387,6 +389,7 @@ export const CandidatesPage = () => {
             <table className="min-w-full">
               <thead>
                 <tr>
+                  <th className="fic-table-header w-14 text-center">S.No</th>
                   <th className="fic-table-header sticky-header-1 w-40">Candidate</th>
                   <th className="fic-table-header sticky-header-2 w-36">App No.</th>
                   <th className="fic-table-header w-28 text-center">Process</th>
@@ -406,9 +409,10 @@ export const CandidatesPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {applications.map((app) => {
+                {applications.map((app, idx) => {
                   const roundMap: Record<string, string> = {};
                   app.interviewRounds?.forEach((r) => { roundMap[r.roundName] = r.currentStatus; });
+                  const serialNum = (page - 1) * 50 + idx + 1;
 
                   return (
                     <tr
@@ -416,6 +420,9 @@ export const CandidatesPage = () => {
                       className="fic-table-row"
                       onClick={() => navigate(`/candidates/${app._id}`)}
                     >
+                      <td className="fic-table-cell text-center font-bold text-slate-500 text-xs w-14">
+                        {serialNum}
+                      </td>
                       <td className="fic-table-cell sticky-col-1 w-40">
                         <div className="font-medium text-slate-800 text-sm truncate max-w-36">{app.candidateName}</div>
                         <div className="text-xs text-slate-400 truncate">{app.candidateEmail}</div>

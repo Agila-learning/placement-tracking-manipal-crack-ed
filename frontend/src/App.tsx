@@ -80,8 +80,12 @@ export const App = () => (
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/candidates" element={<CandidatesPage />} />
             <Route path="/candidates/:id" element={<CandidateDetailPage />} />
-            <Route path="/commissions" element={<CommissionPage />} />
             <Route path="/reports" element={<ReportsPage />} />
+          </Route>
+
+          {/* Super Admin only Routes */}
+          <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} />}>
+            <Route path="/commissions" element={<CommissionPage />} />
           </Route>
 
           {/* Admin-only Routes */}

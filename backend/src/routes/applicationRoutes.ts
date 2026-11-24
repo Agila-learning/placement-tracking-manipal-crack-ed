@@ -23,7 +23,7 @@ import {
   exportCandidatesExcel,
 } from '../controllers/candidateController';
 import { authenticateToken } from '../middleware/auth';
-import { hrAndAbove, adminAndAbove, accountsAndAbove } from '../middleware/rbac';
+import { hrAndAbove, adminAndAbove, accountsAndAbove, superAdminOnly } from '../middleware/rbac';
 import { resumeUpload, excelUpload } from '../middleware/upload';
 
 const router = Router();
@@ -80,8 +80,8 @@ router.patch('/:applicationId/campus', adminAndAbove, updateCampusStatus);
 // Activity logs
 router.get('/logs/:applicationNumber', getApplicationActivityLogs);
 
-// Commission status
-router.patch('/:applicationId/commission', adminAndAbove, updateCommissionStatus);
+// Commission status (Super Admin only)
+router.patch('/:applicationId/commission', superAdminOnly, updateCommissionStatus);
 
 // Enrollment fee edit
 router.patch('/:applicationId/payment/fee', accountsAndAbove, updateEnrollmentFee);

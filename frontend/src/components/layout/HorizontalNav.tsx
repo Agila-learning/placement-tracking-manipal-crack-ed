@@ -28,7 +28,12 @@ import { applicationsApi } from '../../api/endpoints';
 const primaryNav = [
   { label: 'Dashboard', to: '/dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
   { label: 'Candidates', to: '/candidates', icon: <Users className="w-4 h-4" /> },
-  { label: 'Commission', to: '/commissions', icon: <Banknote className="w-4 h-4" /> },
+  {
+    label: 'Commission',
+    to: '/commissions',
+    icon: <Banknote className="w-4 h-4" />,
+    roles: ['SUPER_ADMIN'],
+  },
   {
     label: 'Masters',
     to: '#',
@@ -84,6 +89,13 @@ export const HorizontalNav = ({ children }: { children: React.ReactNode }) => {
   const mastersRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
+
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const totalAlerts =
+    (alerts.pendingInterview || 0) +
+    (alerts.feePending || 0) +
+    (alerts.onHoldCandidates || 0) +
+    (isSuperAdmin ? (alerts.commissionPending || 0) : 0);
 
   // Load alert metrics for notification bell
   useEffect(() => {
@@ -192,9 +204,9 @@ export const HorizontalNav = ({ children }: { children: React.ReactNode }) => {
                 aria-label="View notifications"
               >
                 <Bell className="w-5 h-5" />
-                {((alerts.pendingInterview || 0) + (alerts.feePending || 0) + (alerts.onHoldCandidates || 0) + (alerts.commissionPending || 0)) > 0 && (
+                {totalAlerts > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white animate-pulse">
-                    {(alerts.pendingInterview || 0) + (alerts.feePending || 0) + (alerts.onHoldCandidates || 0) + (alerts.commissionPending || 0)}
+                    {totalAlerts}
                   </span>
                 )}
               </button>
@@ -317,29 +329,31 @@ export const HorizontalNav = ({ children }: { children: React.ReactNode }) => {
                         </div>
                       </div>
 
-                      {/* Notification 5: Commission Pending */}
-                      <div
-                        onClick={() => {
-                          setNotificationsOpen(false);
-                          navigate('/commissions');
-                        }}
-                        className="p-2.5 rounded-xl hover:bg-purple-50/80 cursor-pointer transition-colors flex items-start gap-2.5 pt-2"
-                      >
-                        <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <Banknote className="w-3.5 h-3.5" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-slate-800">Commission Pending</span>
-                            <span className="font-extrabold text-purple-800 bg-purple-100 px-2 py-0.2 rounded-full text-[11px]">
-                              {alerts.commissionPending}
-                            </span>
+                      {/* Notification 5: Commission Pending (Super Admin Only) */}
+                      {isSuperAdmin && (
+                        <div
+                          onClick={() => {
+                            setNotificationsOpen(false);
+                            navigate('/commissions');
+                          }}
+                          className="p-2.5 rounded-xl hover:bg-purple-50/80 cursor-pointer transition-colors flex items-start gap-2.5 pt-2"
+                        >
+                          <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Banknote className="w-3.5 h-3.5" />
                           </div>
-                          <p className="text-[11px] text-slate-500 mt-0.5">
-                            Placed candidates with commission to collect
-                          </p>
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-slate-800">Commission Pending</span>
+                              <span className="font-extrabold text-purple-800 bg-purple-100 px-2 py-0.2 rounded-full text-[11px]">
+                                {alerts.commissionPending}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-0.5">
+                              Placed candidates with commission to collect
+                            </p>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
 
                     <div className="p-2 border-t border-slate-100 bg-slate-50 text-center">

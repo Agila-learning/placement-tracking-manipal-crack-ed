@@ -194,7 +194,10 @@ export const registerCandidateAndApplication = async (req: Request, res: Respons
     let hrRefId: any = undefined;
     let hrRefName = req.user?.name || 'Admin';
 
-    if (hrReferenceId) {
+    if (req.user && req.user.role === 'HR_EXECUTIVE') {
+      hrRefId = req.user.userId;
+      hrRefName = req.user.name;
+    } else if (hrReferenceId) {
       hrUser = await User.findById(hrReferenceId).session(session);
       if (hrUser) {
         hrRefId = hrUser._id;
@@ -405,12 +408,25 @@ export const getApplications = async (req: Request, res: Response): Promise<void
     const limitNum = Math.min(200, Math.max(1, parseInt(String(limit))));
     const skip = (pageNum - 1) * limitNum;
 
+    const user = (req as any).user;
+    const isHrUser = user && user.role === 'HR_EXECUTIVE';
+
     const filter: any = {};
 
     if (bank) filter.bankName = { $regex: String(bank), $options: 'i' };
     if (program) filter.programName = { $regex: String(program), $options: 'i' };
     if (vendor) filter.vendorName = { $regex: String(vendor), $options: 'i' };
-    if (hr) filter.hrReferenceName = { $regex: String(hr), $options: 'i' };
+
+    if (isHrUser) {
+      const hrConditions: any[] = [{ hrReferenceName: { $regex: `^${user.name}$`, $options: 'i' } }];
+      if (mongoose.Types.ObjectId.isValid(user.userId)) {
+        hrConditions.push({ hrReferenceId: new mongoose.Types.ObjectId(user.userId) });
+      }
+      filter.$and = filter.$and || [];
+      filter.$and.push({ $or: hrConditions });
+    } else if (hr) {
+      filter.hrReferenceName = { $regex: String(hr), $options: 'i' };
+    }
     if (status) filter.overallStatus = String(status);
     if (processType) {
       if (String(processType).toLowerCase().includes('crack')) {
@@ -533,6 +549,17 @@ export const getApplicationById = async (req: Request, res: Response): Promise<v
       return;
     }
 
+    const user = (req as any).user;
+    if (user && user.role === 'HR_EXECUTIVE') {
+      const hrMatches =
+        String(application.hrReferenceId) === String(user.userId) ||
+        (application.hrReferenceName && application.hrReferenceName.toLowerCase() === user.name.toLowerCase());
+      if (!hrMatches) {
+        sendError(res, "Access denied: You do not have permission to view other HRs' candidates.", 403);
+        return;
+      }
+    }
+
     // Auto-sync enrollment fee if Program Master was updated
     let finalPayment: any = payment;
     if (application.programId && payment) {
@@ -583,6 +610,17 @@ export const updateApplicationStatus = async (req: Request, res: Response): Prom
     if (!application) {
       sendError(res, 'Application not found.', 404);
       return;
+    }
+
+    const user = (req as any).user;
+    if (user && user.role === 'HR_EXECUTIVE') {
+      const hrMatches =
+        String(application.hrReferenceId) === String(user.userId) ||
+        (application.hrReferenceName && application.hrReferenceName.toLowerCase() === user.name.toLowerCase());
+      if (!hrMatches) {
+        sendError(res, "Access denied: You can only update candidates assigned to you.", 403);
+        return;
+      }
     }
 
     // Step-by-step update pipeline check:
@@ -704,6 +742,17 @@ export const updateCandidateAndApplicationDetails = async (req: Request, res: Re
     if (!application) {
       sendError(res, 'Application not found.', 404);
       return;
+    }
+
+    const user = (req as any).user;
+    if (user && user.role === 'HR_EXECUTIVE') {
+      const hrMatches =
+        String(application.hrReferenceId) === String(user.userId) ||
+        (application.hrReferenceName && application.hrReferenceName.toLowerCase() === user.name.toLowerCase());
+      if (!hrMatches) {
+        sendError(res, "Access denied: You can only edit candidates assigned to you.", 403);
+        return;
+      }
     }
 
     const oldAppNum = application.applicationNumber;
@@ -930,6 +979,17 @@ export const updateInterviewRound = async (req: Request, res: Response): Promise
     if (!application) {
       sendError(res, 'Application not found.', 404);
       return;
+    }
+
+    const user = (req as any).user;
+    if (user && user.role === 'HR_EXECUTIVE') {
+      const hrMatches =
+        String(application.hrReferenceId) === String(user.userId) ||
+        (application.hrReferenceName && application.hrReferenceName.toLowerCase() === user.name.toLowerCase());
+      if (!hrMatches) {
+        sendError(res, "Access denied: You can only update interviews for candidates assigned to you.", 403);
+        return;
+      }
     }
 
     const roundIndex = application.interviewRounds.findIndex((r) => r.roundId === roundId);
@@ -1643,18 +1703,22 @@ export const updateCommissionStatus = async (req: Request, res: Response): Promi
 
 // ---- DASHBOARD STATS ----
 
-export const getDashboardStats = async (_req: Request, res: Response): Promise<void> => {
+export const getDashboardStats = async (req: Request, res: Response): Promise<void> => {
   try {
-    // Reconcile CampusStatus records where Application is marked 'Arrived in Campus'
-    const arrivedAppIds = await Application.find({ overallStatus: 'Arrived in Campus' }).distinct('_id');
-    if (arrivedAppIds.length > 0) {
-      await CampusStatus.updateMany(
-        { applicationId: { $in: arrivedAppIds }, campusStatus: { $ne: 'Arrived in Campus' } },
-        { $set: { campusStatus: 'Arrived in Campus' } }
-      );
+    const user = (req as any).user;
+    const isHrUser = user && user.role === 'HR_EXECUTIVE';
+
+    // Base application filter for HR role
+    const appFilter: any = {};
+    if (isHrUser) {
+      const hrIdConditions: any[] = [{ hrReferenceName: { $regex: `^${user.name}$`, $options: 'i' } }];
+      if (mongoose.Types.ObjectId.isValid(user.userId)) {
+        hrIdConditions.push({ hrReferenceId: new mongoose.Types.ObjectId(user.userId) });
+      }
+      appFilter.$or = hrIdConditions;
     }
 
-    const activeAppIds = await Application.find().distinct('_id');
+    const activeAppIds = await Application.find(appFilter).distinct('_id');
 
     const [
       totalApplications,
@@ -1667,11 +1731,23 @@ export const getDashboardStats = async (_req: Request, res: Response): Promise<v
       campusStats,
       commissionStats,
     ] = await Promise.all([
-      Application.countDocuments(),
-      Application.aggregate([{ $group: { _id: '$overallStatus', count: { $sum: 1 } } }]),
-      Application.aggregate([{ $group: { _id: '$vendorName', count: { $sum: 1 } } }]),
-      Application.aggregate([{ $group: { _id: '$bankName', count: { $sum: 1 } } }]),
-      Application.aggregate([{ $group: { _id: '$programName', count: { $sum: 1 } } }]),
+      Application.countDocuments(appFilter),
+      Application.aggregate([
+        ...(Object.keys(appFilter).length ? [{ $match: appFilter }] : []),
+        { $group: { _id: '$overallStatus', count: { $sum: 1 } } },
+      ]),
+      Application.aggregate([
+        ...(Object.keys(appFilter).length ? [{ $match: appFilter }] : []),
+        { $group: { _id: '$vendorName', count: { $sum: 1 } } },
+      ]),
+      Application.aggregate([
+        ...(Object.keys(appFilter).length ? [{ $match: appFilter }] : []),
+        { $group: { _id: '$bankName', count: { $sum: 1 } } },
+      ]),
+      Application.aggregate([
+        ...(Object.keys(appFilter).length ? [{ $match: appFilter }] : []),
+        { $group: { _id: '$programName', count: { $sum: 1 } } },
+      ]),
       Payment.aggregate([
         { $match: { applicationId: { $in: activeAppIds } } },
         { $group: { _id: '$paymentStatus', count: { $sum: 1 }, totalFee: { $sum: '$enrollmentFeeAmount' }, totalPaid: { $sum: '$amountPaid' } } },
@@ -1684,7 +1760,9 @@ export const getDashboardStats = async (_req: Request, res: Response): Promise<v
         { $match: { applicationId: { $in: activeAppIds } } },
         { $group: { _id: '$campusStatus', count: { $sum: 1 } } },
       ]),
-      Application.aggregate([{ $group: { _id: '$commissionStatus', count: { $sum: 1 } } }]),
+      isHrUser
+        ? Promise.resolve([])
+        : Application.aggregate([{ $group: { _id: '$commissionStatus', count: { $sum: 1 } } }]),
     ]);
 
     const statusMap = Object.fromEntries(byStatus.map((s: any) => [s._id, s.count]));
@@ -1695,12 +1773,14 @@ export const getDashboardStats = async (_req: Request, res: Response): Promise<v
     const commissionMap = Object.fromEntries(commissionStats.map((c: any) => [c._id, c.count]));
 
     const interviewsScheduled = await Application.countDocuments({
+      ...appFilter,
       interviewRounds: {
         $elemMatch: { currentStatus: 'Scheduled' },
       },
     });
 
     const interviewsYetToSchedule = await Application.countDocuments({
+      ...appFilter,
       overallStatus: { $in: ['Referred', 'Awaiting Interview'] },
       interviewRounds: {
         $not: { $elemMatch: { currentStatus: { $in: ['Scheduled', 'Completed', 'Selected'] } } },
@@ -1709,6 +1789,7 @@ export const getDashboardStats = async (_req: Request, res: Response): Promise<v
 
     // Bank selection count: strictly calculated based on L2 or Final Mock round selection (not campus arrival)
     const bankSelectedAppIds = await Application.find({
+      ...appFilter,
       $or: [
         {
           interviewRounds: {
@@ -1744,23 +1825,26 @@ export const getDashboardStats = async (_req: Request, res: Response): Promise<v
       payments: paymentMap,
       loans: loanMap,
       campus: campusMap,
-      commission: {
-        collected: commissionMap['COLLECTED'] || 0,
-        pending: commissionMap['PENDING'] || 0,
-        notApplicable: commissionMap['NOT_APPLICABLE'] || 0,
-        notSet: Math.max(0, totalApplications - (commissionMap['COLLECTED'] || 0) - (commissionMap['PENDING'] || 0) - (commissionMap['NOT_APPLICABLE'] || 0)),
-      },
+      commission: isHrUser
+        ? { collected: 0, pending: 0, notApplicable: 0, notSet: 0 }
+        : {
+            collected: commissionMap['COLLECTED'] || 0,
+            pending: commissionMap['PENDING'] || 0,
+            notApplicable: commissionMap['NOT_APPLICABLE'] || 0,
+            notSet: Math.max(0, totalApplications - (commissionMap['COLLECTED'] || 0) - (commissionMap['PENDING'] || 0) - (commissionMap['NOT_APPLICABLE'] || 0)),
+          },
       alerts: {
         pendingInterview: interviewsYetToSchedule,
         feePending: feePendingCount,
         selectedCandidates: bankSelectedCount,
         onHoldCandidates: statusMap['On Hold'] || 0,
-        commissionPending: commissionMap['PENDING'] || 0,
+        commissionPending: isHrUser ? 0 : (commissionMap['PENDING'] || 0),
       },
       selected: bankSelectedCount,
       rejected: statusMap['Rejected'] || 0,
       dropped: statusMap['Dropped'] || 0,
       enrolled: enrolledCount,
+      isHrPortal: Boolean(isHrUser),
     });
   } catch (error) {
     sendError(res, 'Failed to fetch dashboard stats.', 500);
@@ -2291,6 +2375,18 @@ export const exportCandidatesExcel = async (req: Request, res: Response): Promis
         { candidateMobile: { $regex: q, $options: 'i' } },
         { applicationNumber: { $regex: q, $options: 'i' } },
       ];
+    }
+
+    const user = (req as any).user;
+    const isHrUser = user && user.role === 'HR_EXECUTIVE';
+
+    if (isHrUser) {
+      const hrConditions: any[] = [{ hrReferenceName: { $regex: `^${user.name}$`, $options: 'i' } }];
+      if (mongoose.Types.ObjectId.isValid(user.userId)) {
+        hrConditions.push({ hrReferenceId: new mongoose.Types.ObjectId(user.userId) });
+      }
+      filter.$and = filter.$and || [];
+      filter.$and.push({ $or: hrConditions });
     }
 
     const applications = await Application.find(filter)

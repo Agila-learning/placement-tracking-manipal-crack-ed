@@ -19,6 +19,7 @@ import {
 import { applicationsApi } from '../../api/endpoints';
 import { DashboardStats } from '../../types';
 import { useToast } from '../../contexts/ToastContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { CorporateHeroBanner } from '../../components/dashboard/CorporateHeroBanner';
 import { AnimatedCounter } from '../../components/dashboard/AnimatedCounter';
 import { RegisterCandidateModal } from '../candidates/RegisterCandidateModal';
@@ -71,8 +72,16 @@ const StatCard: React.FC<StatCardProps> = ({
 );
 
 export const DashboardPage = () => {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, hasRole } = useAuth();
+  const [stats, setStats] = useState<DashboardStats | null>(() => {
+    try {
+      const cached = sessionStorage.getItem('fic_dash_cache');
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [isLoading, setIsLoading] = useState(!sessionStorage.getItem('fic_dash_cache'));
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const toast = useToast();
   const navigate = useNavigate();
@@ -82,6 +91,9 @@ export const DashboardPage = () => {
       const res = await applicationsApi.dashboard();
       if (res.success && res.data) {
         setStats(res.data);
+        try {
+          sessionStorage.setItem('fic_dash_cache', JSON.stringify(res.data));
+        } catch {}
       }
     } catch {
       toast.error('Failed to load dashboard statistics.');
@@ -120,43 +132,41 @@ export const DashboardPage = () => {
         onViewCandidates={() => navigate('/candidates')}
       />
 
-      {/* 2. Loading Skeleton Shimmer */}
-      {isLoading ? (
-        <div className="space-y-6 animate-pulse">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="bg-white rounded-xl border border-fic-border p-4 h-24 skeleton" />
-            ))}
-          </div>
-          <div className="bg-white rounded-2xl border border-fic-border p-6 h-48 skeleton" />
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white rounded-2xl border border-fic-border p-6 h-72 skeleton" />
-            <div className="bg-white rounded-2xl border border-fic-border p-6 h-72 skeleton" />
-          </div>
-        </div>
-      ) : (
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          className="space-y-6"
-        >
-          {/* Animated Placement Pipeline Lifecycle Timeline */}
-          <PlacementPipelineTimeline stats={s} />
+      {/* Candidate Placement Lifecycle Pipeline & Dashboard Content */}
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        className="space-y-6"
+      >
+        {/* Animated Placement Pipeline Lifecycle Timeline */}
+        <PlacementPipelineTimeline stats={s} />
 
-          {/* Section: Overview Header */}
-          <div className="flex items-center justify-between pt-2">
-            <div>
-              <h2 className="text-lg font-bold text-fic-navy flex items-center gap-2">
-                Placement Pipeline Overview
-              </h2>
-              <p className="text-xs text-slate-500">Live operational data and candidate milestones</p>
-            </div>
+        {/* Section: Overview Header */}
+        <div className="flex items-center justify-between pt-2">
+          <div>
+            <h2 className="text-lg font-bold text-fic-navy flex items-center gap-2">
+              {user?.role === 'HR_EXECUTIVE' ? 'My Candidate Pipeline' : 'Placement Pipeline Overview'}
+            </h2>
+            <p className="text-xs text-slate-500">
+              {user?.role === 'HR_EXECUTIVE'
+                ? 'Your candidates from sourcing up to campus arrival'
+                : 'Live operational data and candidate milestones nationwide'}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {isLoading && (
+              <span className="inline-flex items-center gap-1.5 text-xs text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200 animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-ping" />
+                Syncing live data...
+              </span>
+            )}
             <span className="hidden sm:inline-flex items-center gap-1.5 text-xs text-slate-400">
               <Sparkles className="w-3.5 h-3.5 text-fic-yellow" />
-              Auto-sync enabled
+              Live pipeline
             </span>
           </div>
+        </div>
 
           {/* Top Level Key Stats Grid */}
           <motion.div
@@ -200,82 +210,84 @@ export const DashboardPage = () => {
             />
           </motion.div>
 
-          {/* Commission Tracking Dedicated KPI Card */}
-          <motion.div
-            variants={sectionVariants}
-            className="bg-gradient-to-r from-indigo-900/5 via-purple-900/5 to-blue-900/5 border border-purple-200/80 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-3.5">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-sm">
-                  <Banknote className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-                    Placement Commission KPI
-                    <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-semibold uppercase">
-                      FIC Placement Revenue
-                    </span>
-                  </h3>
-                  <p className="text-xs text-slate-500">Track candidate placement commission status and collection integrity</p>
-                </div>
-              </div>
-              <button
-                onClick={() => navigate('/candidates')}
-                className="text-xs text-purple-700 hover:text-purple-900 font-semibold flex items-center gap-1 bg-white px-3 py-1.5 rounded-lg border border-purple-200 shadow-2xs hover:bg-purple-50 transition-colors"
-              >
-                <span>View Candidates</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="bg-white/90 backdrop-blur-xs border border-emerald-200 rounded-xl p-3 sm:p-3.5 flex items-center justify-between shadow-2xs hover:border-emerald-300 transition-colors">
-                <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-emerald-600">
-                    Collected
+          {/* Commission Tracking Dedicated KPI Card (Super Admin Only) */}
+          {hasRole('SUPER_ADMIN') && (
+            <motion.div
+              variants={sectionVariants}
+              className="bg-gradient-to-r from-indigo-900/5 via-purple-900/5 to-blue-900/5 border border-purple-200/80 rounded-2xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3.5">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-sm">
+                    <Banknote className="w-5 h-5" />
                   </div>
-                  <div className="text-2xl font-black text-emerald-700 mt-0.5">
-                    <AnimatedCounter value={s?.commission?.collected || 0} />
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                      Placement Commission KPI
+                      <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-semibold uppercase">
+                        FIC Placement Revenue
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-500">Track candidate placement commission status and collection integrity</p>
                   </div>
-                  <div className="text-[11px] text-slate-400 mt-0.5">Placements completed & paid</div>
                 </div>
-                <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-sm">
-                  ✓
-                </div>
+                <button
+                  onClick={() => navigate('/candidates')}
+                  className="text-xs text-purple-700 hover:text-purple-900 font-semibold flex items-center gap-1 bg-white px-3 py-1.5 rounded-lg border border-purple-200 shadow-2xs hover:bg-purple-50 transition-colors"
+                >
+                  <span>View Candidates</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
               </div>
 
-              <div className="bg-white/90 backdrop-blur-xs border border-amber-200 rounded-xl p-3 sm:p-3.5 flex items-center justify-between shadow-2xs hover:border-amber-300 transition-colors">
-                <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-amber-600">
-                    Pending Collection
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-white/90 backdrop-blur-xs border border-emerald-200 rounded-xl p-3 sm:p-3.5 flex items-center justify-between shadow-2xs hover:border-emerald-300 transition-colors">
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-emerald-600">
+                      Collected
+                    </div>
+                    <div className="text-2xl font-black text-emerald-700 mt-0.5">
+                      <AnimatedCounter value={s?.commission?.collected || 0} />
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">Placements completed & paid</div>
                   </div>
-                  <div className="text-2xl font-black text-amber-700 mt-0.5">
-                    <AnimatedCounter value={s?.commission?.pending || 0} />
+                  <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-sm">
+                    ✓
                   </div>
-                  <div className="text-[11px] text-slate-400 mt-0.5">Awaiting payout clearance</div>
                 </div>
-                <div className="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-sm">
-                  ⏳
-                </div>
-              </div>
 
-              <div className="bg-white/90 backdrop-blur-xs border border-slate-200 rounded-xl p-3 sm:p-3.5 flex items-center justify-between shadow-2xs hover:border-slate-300 transition-colors">
-                <div>
-                  <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                    Not Applicable / Open
+                <div className="bg-white/90 backdrop-blur-xs border border-amber-200 rounded-xl p-3 sm:p-3.5 flex items-center justify-between shadow-2xs hover:border-amber-300 transition-colors">
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-amber-600">
+                      Pending Collection
+                    </div>
+                    <div className="text-2xl font-black text-amber-700 mt-0.5">
+                      <AnimatedCounter value={s?.commission?.pending || 0} />
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">Awaiting payout clearance</div>
                   </div>
-                  <div className="text-2xl font-black text-slate-700 mt-0.5">
-                    <AnimatedCounter value={(s?.commission?.notApplicable || 0) + (s?.commission?.notSet || 0)} />
+                  <div className="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-sm">
+                    ⏳
                   </div>
-                  <div className="text-[11px] text-slate-400 mt-0.5">Pre-placement / N/A</div>
                 </div>
-                <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-sm">
-                  —
+
+                <div className="bg-white/90 backdrop-blur-xs border border-slate-200 rounded-xl p-3 sm:p-3.5 flex items-center justify-between shadow-2xs hover:border-slate-300 transition-colors">
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                      Not Applicable / Open
+                    </div>
+                    <div className="text-2xl font-black text-slate-700 mt-0.5">
+                      <AnimatedCounter value={(s?.commission?.notApplicable || 0) + (s?.commission?.notSet || 0)} />
+                    </div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">Pre-placement / N/A</div>
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-sm">
+                    —
+                  </div>
                 </div>
               </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          )}
 
           {/* Interview Status Cards */}
           <motion.div
@@ -405,7 +417,6 @@ export const DashboardPage = () => {
             </motion.div>
           </motion.div>
         </motion.div>
-      )}
 
       {/* Register Candidate Modal Triggered from Banner */}
       <AnimatePresence>

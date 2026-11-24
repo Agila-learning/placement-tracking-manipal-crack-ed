@@ -3,6 +3,7 @@ import { Modal, Button, Input, Select, Textarea } from '../../components/ui';
 import { banksApi, vendorsApi, programsApi, usersApi, applicationsApi } from '../../api/endpoints';
 import { Bank, Vendor, Program, User } from '../../types';
 import { useToast } from '../../contexts/ToastContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { AlertTriangle, CheckCircle } from 'lucide-react';
 import { IndiaLocationSelector } from '../../components/common/IndiaLocationSelector';
 
@@ -14,6 +15,7 @@ interface Props {
 
 export const RegisterCandidateModal: React.FC<Props> = ({ isOpen, onClose, onSuccess }) => {
   const toast = useToast();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [banks, setBanks] = useState<Bank[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -143,7 +145,11 @@ export const RegisterCandidateModal: React.FC<Props> = ({ isOpen, onClose, onSuc
       fd.append('bankId', form.bankId);
       fd.append('programId', form.programId);
       if (form.vendorId) fd.append('vendorId', form.vendorId);
-      if (form.hrReferenceId) fd.append('hrReferenceId', form.hrReferenceId);
+      if (user?.role === 'HR_EXECUTIVE') {
+        fd.append('hrReferenceId', user.id);
+      } else if (form.hrReferenceId) {
+        fd.append('hrReferenceId', form.hrReferenceId);
+      }
       if (form.batchNumber) fd.append('batchNumber', form.batchNumber);
       fd.append('paymentRoute', form.paymentRoute);
       if (form.processType) fd.append('processType', form.processType);
@@ -264,13 +270,26 @@ export const RegisterCandidateModal: React.FC<Props> = ({ isOpen, onClose, onSuc
               onChange={(e) => handleChange('vendorId', e.target.value)}
               placeholder="Select Vendor"
             />
-            <Select
-              label="HR Reference"
-              options={hrList.map((h) => ({ value: h.id, label: `${h.name} (${h.employeeId})` }))}
-              value={form.hrReferenceId}
-              onChange={(e) => handleChange('hrReferenceId', e.target.value)}
-              placeholder="Select HR"
-            />
+            {user?.role === 'HR_EXECUTIVE' ? (
+              <div>
+                <label className="fic-label">HR Reference</label>
+                <input
+                  type="text"
+                  readOnly
+                  disabled
+                  value={`${user.name} (Assigned to You)`}
+                  className="fic-input bg-slate-100 text-slate-700 cursor-not-allowed font-medium"
+                />
+              </div>
+            ) : (
+              <Select
+                label="HR Reference"
+                options={hrList.map((h) => ({ value: h.id, label: `${h.name} (${h.employeeId})` }))}
+                value={form.hrReferenceId}
+                onChange={(e) => handleChange('hrReferenceId', e.target.value)}
+                placeholder="Select HR"
+              />
+            )}
             <Select
               label="Process Type *"
               options={[

@@ -41,6 +41,7 @@ export const PlacementPipelineTimeline: React.FC<PlacementPipelineTimelineProps>
   applications: propApplications,
 }) => {
   const [internalApps, setInternalApps] = useState<Application[]>([]);
+  const [loadingApps, setLoadingApps] = useState(false);
   const [selectedStage, setSelectedStage] = useState<{
     id: number;
     title: string;
@@ -48,18 +49,6 @@ export const PlacementPipelineTimeline: React.FC<PlacementPipelineTimelineProps>
     candidates: CandidateContact[];
   } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!propApplications || propApplications.length === 0) {
-      applicationsApi.list({ limit: '100' }).then((res) => {
-        if (res.success && res.data) {
-          setInternalApps(res.data);
-        }
-      }).catch(() => {
-        // silent fallback
-      });
-    }
-  }, [propApplications]);
 
   const apps = (propApplications && propApplications.length > 0) ? propApplications : internalApps;
 
@@ -140,22 +129,18 @@ export const PlacementPipelineTimeline: React.FC<PlacementPipelineTimelineProps>
     };
   }, [apps]);
 
-  // Candidate counts strictly synced
-  const regCount = Math.max(stats?.totalApplications || 0, stageCandidatesMap.registration.length);
-  const interviewCount = Math.max(
-    stageCandidatesMap.interview.length,
-    (stats?.byStatus?.['Interview in Progress'] || 0) + (stats?.selected || 0)
-  );
-  const selectedCount = stageCandidatesMap.selection.length > 0 
-    ? stageCandidatesMap.selection.length 
-    : (stats?.selected || 0);
-  const enrolledCount = stageCandidatesMap.enrollment.length > 0 
-    ? stageCandidatesMap.enrollment.length 
-    : (stats?.enrolled || 0);
-  const campusCount = Math.max(
-    stageCandidatesMap.campus.length,
-    stats?.campus?.['Arrived in Campus'] || stats?.byStatus?.['Arrived in Campus'] || 0
-  );
+  // Stage counts rendered directly from stats (immediate, zero network lag)
+  const regCount = stats?.totalApplications ?? stageCandidatesMap.registration.length;
+  const interviewCount =
+    (stats?.interviews?.scheduled || 0) +
+    (stats?.byStatus?.['Interview in Progress'] || 0) +
+    (stats?.selected || 0) || stageCandidatesMap.interview.length;
+  const selectedCount = stats?.selected ?? stageCandidatesMap.selection.length;
+  const enrolledCount = stats?.enrolled ?? stageCandidatesMap.enrollment.length;
+  const campusCount =
+    stats?.campus?.['Arrived in Campus'] ||
+    stats?.byStatus?.['Arrived in Campus'] ||
+    stageCandidatesMap.campus.length;
 
   const stages = [
     {
@@ -217,6 +202,40 @@ export const PlacementPipelineTimeline: React.FC<PlacementPipelineTimelineProps>
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const handleStageClick = async (stage: typeof stages[0]) => {
+    setSelectedStage(stage);
+    if (internalApps.length === 0 && (!propApplications || propApplications.length === 0)) {
+      setLoadingApps(true);
+      try {
+        const res = await applicationsApi.list({ limit: '100' });
+        if (res.success && res.data) {
+          setInternalApps(res.data);
+        }
+      } catch {}
+      finally {
+        setLoadingApps(false);
+      }
+    }
+  };
+
+  const currentStageCandidates = useMemo(() => {
+    if (!selectedStage) return [];
+    switch (selectedStage.id) {
+      case 1:
+        return stageCandidatesMap.registration;
+      case 2:
+        return stageCandidatesMap.interview;
+      case 3:
+        return stageCandidatesMap.selection;
+      case 4:
+        return stageCandidatesMap.enrollment;
+      case 5:
+        return stageCandidatesMap.campus;
+      default:
+        return selectedStage.candidates;
+    }
+  }, [selectedStage, stageCandidatesMap]);
+
   return (
     <div className="bg-white rounded-2xl border border-fic-border p-5 md:p-6 shadow-sm hover:shadow-md transition-shadow">
       {/* Header */}
@@ -258,7 +277,7 @@ export const PlacementPipelineTimeline: React.FC<PlacementPipelineTimelineProps>
           {stages.map((stage) => (
             <div
               key={stage.id}
-              onClick={() => setSelectedStage(stage)}
+              onClick={() => handleStageClick(stage)}
               className="flex flex-col items-center text-center p-3 rounded-xl hover:bg-blue-50/60 cursor-pointer border border-slate-200/60 sm:border-transparent hover:border-blue-200 hover:shadow-md transition-all group select-none min-w-[140px] sm:min-w-0 flex-1 snap-start bg-slate-50/50 sm:bg-transparent"
               title="Click to view candidate contacts"
             >
@@ -307,22 +326,27 @@ export const PlacementPipelineTimeline: React.FC<PlacementPipelineTimelineProps>
               Candidate Name &amp; Contact Details:
             </span>
             <span className="font-bold text-fic-navy bg-white px-2.5 py-0.5 rounded-md border border-slate-200 shadow-2xs">
-              {selectedStage?.candidates.length || 0} candidate{(selectedStage?.candidates.length || 0) === 1 ? '' : 's'}
+              {currentStageCandidates.length} candidate{currentStageCandidates.length === 1 ? '' : 's'}
             </span>
           </div>
 
-          {selectedStage && selectedStage.candidates.length > 0 ? (
-            <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+          {loadingApps ? (
+            <div className="py-12 flex flex-col items-center justify-center gap-2.5 text-slate-500 text-xs">
+              <div className="w-6 h-6 border-2 border-fic-navy border-t-transparent rounded-full animate-spin" />
+              <span>Loading stage candidates...</span>
+            </div>
+          ) : currentStageCandidates.length > 0 ? (
+            <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs max-h-80 overflow-y-auto">
               <table className="w-full text-left text-xs sm:text-sm">
-                <thead>
-                  <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
+                <thead className="sticky top-0 bg-slate-100 border-b border-slate-200 z-10">
+                  <tr className="text-slate-600 font-bold uppercase tracking-wider text-[11px]">
                     <th className="py-2.5 px-3 w-10 text-center">#</th>
                     <th className="py-2.5 px-3">Candidate Name</th>
                     <th className="py-2.5 px-3 text-right">Mobile Number</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {selectedStage.candidates.map((c, i) => (
+                  {currentStageCandidates.map((c, i) => (
                     <tr key={c.id || i} className="hover:bg-slate-50 transition-colors">
                       <td className="py-3 px-3 text-center text-xs font-mono text-slate-400">
                         {i + 1}

@@ -138,7 +138,9 @@ export const CorporateHeroBanner: React.FC<CorporateHeroBannerProps> = ({
               Welcome to <span className="text-[#FDB813]">Forge India Connect</span>
             </h1>
             <p className="text-xs sm:text-sm text-blue-100/90 font-normal">
-              Manage candidates, interviews and placement progress in one place.
+              {user?.role === 'HR_EXECUTIVE'
+                ? 'Manage your candidates, interviews and campus arrival progress.'
+                : 'Manage candidates, interviews and placement progress in one place.'}
             </p>
           </motion.div>
 
