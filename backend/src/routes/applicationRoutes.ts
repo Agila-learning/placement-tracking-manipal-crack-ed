@@ -69,13 +69,13 @@ router.patch('/:id/interview/:roundId', hrAndAbove, updateInterviewRound);
 // Resume upload for existing candidate
 router.post('/candidate/:candidateId/resume', hrAndAbove, resumeUpload.single('resume'), updateCandidateResume);
 
-// Payment management (Accounts + Admin)
-router.post('/:applicationId/payment', accountsAndAbove, recordPayment);
+// Payment management (Accounts + Admin + HR)
+router.post('/:applicationId/payment', hrAndAbove, recordPayment);
 router.patch('/:applicationId/payment/transaction/:transactionMongoId/verify', accountsAndAbove, verifyPaymentTransaction);
 
 // Loan & Campus (Admin + HR update, Accounts can view)
-router.patch('/:applicationId/loan', adminAndAbove, updateLoanStatus);
-router.patch('/:applicationId/campus', adminAndAbove, updateCampusStatus);
+router.patch('/:applicationId/loan', hrAndAbove, updateLoanStatus);
+router.patch('/:applicationId/campus', hrAndAbove, updateCampusStatus);
 
 // Activity logs
 router.get('/logs/:applicationNumber', getApplicationActivityLogs);
@@ -84,8 +84,8 @@ router.get('/logs/:applicationNumber', getApplicationActivityLogs);
 router.patch('/:applicationId/commission', superAdminOnly, updateCommissionStatus);
 
 // Enrollment fee edit
-router.patch('/:applicationId/payment/fee', accountsAndAbove, updateEnrollmentFee);
-router.post('/:id/sync-program-fee', accountsAndAbove, syncProgramFee);
+router.patch('/:applicationId/payment/fee', hrAndAbove, updateEnrollmentFee);
+router.post('/:id/sync-program-fee', hrAndAbove, syncProgramFee);
 
 export default router;
 

@@ -1171,6 +1171,20 @@ export const recordPayment = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
+    const user = (req as any).user;
+    if (user && user.role === 'HR_EXECUTIVE') {
+      const appDoc = await Application.findById(applicationId).session(session);
+      const hrMatches = appDoc && (
+        String(appDoc.hrReferenceId) === String(user.userId) ||
+        (appDoc.hrReferenceName && appDoc.hrReferenceName.toLowerCase() === user.name.toLowerCase())
+      );
+      if (!hrMatches) {
+        await session.abortTransaction();
+        sendError(res, 'Access denied: You can only record payment for candidates assigned to you.', 403);
+        return;
+      }
+    }
+
     // Default payment mode if omitted
     if (!paymentMode) paymentMode = 'UPI';
 
@@ -1327,6 +1341,19 @@ export const updateLoanStatus = async (req: Request, res: Response): Promise<voi
     const { applicationId } = req.params;
     const { loanStatus, isLoanRequired, remarks, sanctionDate, sanctionAmount } = req.body;
 
+    const user = (req as any).user;
+    if (user && user.role === 'HR_EXECUTIVE') {
+      const appDoc = await Application.findById(applicationId);
+      const hrMatches = appDoc && (
+        String(appDoc.hrReferenceId) === String(user.userId) ||
+        (appDoc.hrReferenceName && appDoc.hrReferenceName.toLowerCase() === user.name.toLowerCase())
+      );
+      if (!hrMatches) {
+        sendError(res, 'Access denied: You can only update loan status for candidates assigned to you.', 403);
+        return;
+      }
+    }
+
     let loan = await LoanStatus.findOne({ applicationId });
     if (!loan) {
       const application = await Application.findById(applicationId);
@@ -1385,6 +1412,19 @@ export const updateCampusStatus = async (req: Request, res: Response): Promise<v
   try {
     const { applicationId } = req.params;
     let { campusStatus, arrivalDate, campusLocation, reportingBatch, remarks } = req.body;
+
+    const user = (req as any).user;
+    if (user && user.role === 'HR_EXECUTIVE') {
+      const appDoc = await Application.findById(applicationId);
+      const hrMatches = appDoc && (
+        String(appDoc.hrReferenceId) === String(user.userId) ||
+        (appDoc.hrReferenceName && appDoc.hrReferenceName.toLowerCase() === user.name.toLowerCase())
+      );
+      if (!hrMatches) {
+        sendError(res, 'Access denied: You can only update campus status for candidates assigned to you.', 403);
+        return;
+      }
+    }
 
     let campus = await CampusStatus.findOne({ applicationId });
     if (!campus) {
@@ -1479,6 +1519,19 @@ export const updateEnrollmentFee = async (req: Request, res: Response): Promise<
   try {
     const { applicationId } = req.params;
     const { enrollmentFeeAmount, totalProgramFee, installments, remarks } = req.body;
+
+    const user = (req as any).user;
+    if (user && user.role === 'HR_EXECUTIVE') {
+      const appDoc = await Application.findById(applicationId);
+      const hrMatches = appDoc && (
+        String(appDoc.hrReferenceId) === String(user.userId) ||
+        (appDoc.hrReferenceName && appDoc.hrReferenceName.toLowerCase() === user.name.toLowerCase())
+      );
+      if (!hrMatches) {
+        sendError(res, 'Access denied: You can only update fee details for candidates assigned to you.', 403);
+        return;
+      }
+    }
 
     const payment = await Payment.findOne({ applicationId });
     if (!payment) {
@@ -1590,6 +1643,16 @@ export const syncProgramFee = async (req: Request, res: Response): Promise<void>
     if (!application) {
       sendError(res, 'Application not found.', 404);
       return;
+    }
+    const user = (req as any).user;
+    if (user && user.role === 'HR_EXECUTIVE') {
+      const hrMatches =
+        String(application.hrReferenceId) === String(user.userId) ||
+        (application.hrReferenceName && application.hrReferenceName.toLowerCase() === user.name.toLowerCase());
+      if (!hrMatches) {
+        sendError(res, 'Access denied: You can only sync fee for candidates assigned to you.', 403);
+        return;
+      }
     }
     const program = await Program.findById(application.programId);
     if (!program) {

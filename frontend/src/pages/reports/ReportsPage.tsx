@@ -5,9 +5,11 @@ import { Application, Bank, Program, Vendor, User, ALL_APPLICATION_STATUSES } fr
 import { Button, Badge, EmptyState, LoadingSpinner, PageHeader } from '../../components/ui';
 import { appStatusBadge, interviewStatusBadge, paymentStatusBadge, loanStatusBadge, formatDate, formatCurrency } from '../../utils/statusHelpers';
 import { useToast } from '../../contexts/ToastContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 export const ReportsPage = () => {
   const toast = useToast();
+  const { user } = useAuth();
   const [activeReport, setActiveReport] = useState<'interview' | 'enrollment'>('interview');
   const [data, setData] = useState<Application[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -56,6 +58,9 @@ export const ReportsPage = () => {
   const buildParams = () => {
     const p: Record<string, string> = {};
     Object.entries(filters).forEach(([k, v]) => { if (v) p[k] = v; });
+    if (user?.role === 'HR_EXECUTIVE') {
+      p.hr = user.name;
+    }
     return p;
   };
 
@@ -85,7 +90,11 @@ export const ReportsPage = () => {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Reports" description="Interview status and enrollment fee reports"
+      <PageHeader
+        title={user?.role === 'HR_EXECUTIVE' ? "My Candidate Reports" : "Reports"}
+        description={user?.role === 'HR_EXECUTIVE'
+          ? "Interview status and enrollment fee reports for your assigned candidates"
+          : "Interview status and enrollment fee reports"}
         actions={
           hasLoaded && data.length > 0 ? (
             <Button variant="secondary" leftIcon={<Download className="w-4 h-4" />} onClick={handleExport}>
@@ -157,18 +166,28 @@ export const ReportsPage = () => {
           </select>
 
           {/* HR Reference Dropdown */}
-          <select
-            className="fic-input text-sm h-9"
-            value={filters.hr}
-            onChange={(e) => setFilter('hr', e.target.value)}
-          >
-            <option value="">All HR References</option>
-            {hrList.map((u) => (
-              <option key={u.id || u._id || u.name} value={u.name}>
-                {u.name} {u.employeeId ? `(${u.employeeId})` : ''}
-              </option>
-            ))}
-          </select>
+          {user?.role === 'HR_EXECUTIVE' ? (
+            <input
+              type="text"
+              readOnly
+              disabled
+              value={`HR: ${user.name} (Assigned to You)`}
+              className="fic-input text-sm h-9 bg-slate-100 text-slate-700 cursor-not-allowed font-medium"
+            />
+          ) : (
+            <select
+              className="fic-input text-sm h-9"
+              value={filters.hr}
+              onChange={(e) => setFilter('hr', e.target.value)}
+            >
+              <option value="">All HR References</option>
+              {hrList.map((u) => (
+                <option key={u.id || u._id || u.name} value={u.name}>
+                  {u.name} {u.employeeId ? `(${u.employeeId})` : ''}
+                </option>
+              ))}
+            </select>
+          )}
 
           <select className="fic-input text-sm h-9" value={filters.status} onChange={e => setFilter('status', e.target.value)}>
             <option value="">All App. Statuses</option>
@@ -193,7 +212,22 @@ export const ReportsPage = () => {
           <Button onClick={loadReport} isLoading={isLoading} leftIcon={<BarChart2 className="w-4 h-4" />}>
             Generate Report
           </Button>
-          <Button variant="ghost" onClick={() => setFilters({ bank: '', program: '', vendor: '', hr: '', status: '', fromDate: '', toDate: '', paymentStatus: '', loanStatus: '' })}>
+          <Button
+            variant="ghost"
+            onClick={() =>
+              setFilters({
+                bank: '',
+                program: '',
+                vendor: '',
+                hr: user?.role === 'HR_EXECUTIVE' ? user.name : '',
+                status: '',
+                fromDate: '',
+                toDate: '',
+                paymentStatus: '',
+                loanStatus: '',
+              })
+            }
+          >
             Clear Filters
           </Button>
         </div>

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import { Application } from '../models/Application';
 import { Payment } from '../models/Payment';
 import { LoanStatus } from '../models/LoanStatus';
@@ -6,7 +7,7 @@ import { CampusStatus } from '../models/CampusStatus';
 import ExcelJS from 'exceljs';
 import { sendSuccess, sendError } from '../utils/response';
 
-const buildCommonFilter = (query: any) => {
+const buildCommonFilter = (query: any, user?: any) => {
   const { bank, program, vendor, hr, status, fromDate, toDate, paymentStatus, loanStatus, bankId, programId, vendorId, hrId } = query;
   const filter: any = {};
   if (bankId) filter.bankId = bankId;
@@ -18,8 +19,19 @@ const buildCommonFilter = (query: any) => {
   if (vendorId) filter.vendorId = vendorId;
   else if (vendor) filter.vendorName = { $regex: String(vendor), $options: 'i' };
 
-  if (hrId) filter.hrReferenceId = hrId;
-  else if (hr) filter.hrReferenceName = { $regex: String(hr), $options: 'i' };
+  const isHrUser = user && user.role === 'HR_EXECUTIVE';
+  if (isHrUser) {
+    const hrConditions: any[] = [{ hrReferenceName: { $regex: `^${user.name}$`, $options: 'i' } }];
+    if (mongoose.Types.ObjectId.isValid(user.userId)) {
+      hrConditions.push({ hrReferenceId: new mongoose.Types.ObjectId(user.userId) });
+    }
+    filter.$and = filter.$and || [];
+    filter.$and.push({ $or: hrConditions });
+  } else if (hrId) {
+    filter.hrReferenceId = hrId;
+  } else if (hr) {
+    filter.hrReferenceName = { $regex: String(hr), $options: 'i' };
+  }
 
   if (status) filter.overallStatus = String(status);
   if (fromDate || toDate) {
@@ -32,7 +44,7 @@ const buildCommonFilter = (query: any) => {
 
 export const getInterviewStatusReport = async (req: Request, res: Response): Promise<void> => {
   try {
-    const filter = buildCommonFilter(req.query);
+    const filter = buildCommonFilter(req.query, (req as any).user);
     const { programId } = req.query;
     if (programId) filter.programId = programId;
 
@@ -50,7 +62,7 @@ export const getInterviewStatusReport = async (req: Request, res: Response): Pro
 
 export const getEnrollmentFeeReport = async (req: Request, res: Response): Promise<void> => {
   try {
-    const filter = buildCommonFilter(req.query);
+    const filter = buildCommonFilter(req.query, (req as any).user);
     const { paymentStatus, loanStatus } = req.query;
 
     const applications = await Application.find(filter)
@@ -98,7 +110,7 @@ export const getEnrollmentFeeReport = async (req: Request, res: Response): Promi
 
 export const exportInterviewReport = async (req: Request, res: Response): Promise<void> => {
   try {
-    const filter = buildCommonFilter(req.query);
+    const filter = buildCommonFilter(req.query, (req as any).user);
 
     const applications = await Application.find(filter)
       .select('applicationNumber candidateName bankName programName vendorName hrReferenceName overallStatus interviewRounds registrationDate')
@@ -158,7 +170,7 @@ export const exportInterviewReport = async (req: Request, res: Response): Promis
 
 export const exportEnrollmentReport = async (req: Request, res: Response): Promise<void> => {
   try {
-    const filter = buildCommonFilter(req.query);
+    const filter = buildCommonFilter(req.query, (req as any).user);
 
     const applications = await Application.find(filter)
       .select('applicationNumber candidateName bankName programName vendorName paymentRoute registrationDate')

@@ -28,15 +28,22 @@ export const CandidateDetailPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const searchParams = new URLSearchParams(location.search);
   const initialTab = searchParams.get('tab') || 'details';
-  const [activeTab, setActiveTab] = useState(initialTab);
+  const [activeTab, setActiveTab] = useState(() => {
+    if (initialTab === 'commission' && !hasRole('SUPER_ADMIN')) return 'details';
+    return initialTab;
+  });
 
   // Sync tab with URL search parameter when user navigates
   useEffect(() => {
     const tabParam = new URLSearchParams(location.search).get('tab');
     if (tabParam) {
-      setActiveTab(tabParam);
+      if (tabParam === 'commission' && !hasRole('SUPER_ADMIN')) {
+        setActiveTab('details');
+      } else {
+        setActiveTab(tabParam);
+      }
     }
-  }, [location.search]);
+  }, [location.search, hasRole]);
 
   // Status Update Modal
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -360,11 +367,14 @@ export const CandidateDetailPage = () => {
   };
 
   useEffect(() => {
-    const editParam = new URLSearchParams(location.search).get('edit');
-    if (editParam === 'true' && application) {
+    const params = new URLSearchParams(location.search);
+    if (params.get('edit') === 'true' && application) {
+      params.delete('edit');
+      const newSearch = params.toString() ? `?${params.toString()}` : '';
+      navigate(`${location.pathname}${newSearch}`, { replace: true });
       openEditDetailsModal();
     }
-  }, [location.search, application]);
+  }, [location.search, application, navigate]);
 
   const handleStatusUpdate = async () => {
     if (!newStatus || !id) return;
@@ -712,7 +722,7 @@ export const CandidateDetailPage = () => {
     { id: 'interviews', label: 'Interview Tracking', icon: <Calendar className="w-4 h-4" /> },
     { id: 'payments', label: 'Enrollment & Payments', icon: <CreditCard className="w-4 h-4" /> },
     { id: 'loan-campus', label: 'Loan & Campus', icon: <Building2 className="w-4 h-4" /> },
-    { id: 'commission', label: 'Commission', icon: <FileText className="w-4 h-4" /> },
+    ...(hasRole('SUPER_ADMIN') ? [{ id: 'commission', label: 'Commission', icon: <FileText className="w-4 h-4" /> }] : []),
     { id: 'activity', label: 'Activity History', icon: <Activity className="w-4 h-4" /> },
   ];
 
@@ -932,8 +942,15 @@ export const CandidateDetailPage = () => {
                         <Badge className={interviewStatusBadge[round.currentStatus]}>{round.currentStatus}</Badge>
                       </div>
                       {hasRole('SUPER_ADMIN', 'ADMIN', 'HR_EXECUTIVE') && (
-                        <Button size="sm" variant="secondary" leftIcon={<Edit2 className="w-3 h-3" />}
-                          onClick={() => openInterviewModal(round)}>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          leftIcon={<Edit2 className="w-3 h-3" />}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openInterviewModal(round);
+                          }}
+                        >
                           Update
                         </Button>
                       )}
@@ -1055,7 +1072,7 @@ export const CandidateDetailPage = () => {
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <Badge className={paymentStatusBadge[a.payment.paymentStatus]}>{a.payment.paymentStatus}</Badge>
                     <div className="flex gap-2 flex-wrap items-center">
-                      {hasRole('SUPER_ADMIN', 'ADMIN', 'ACCOUNTS') && (
+                      {hasRole('SUPER_ADMIN', 'ADMIN', 'ACCOUNTS', 'HR_EXECUTIVE') && (
                         <>
                           <Button
                             size="sm"
@@ -1077,7 +1094,7 @@ export const CandidateDetailPage = () => {
                           </Button>
                         </>
                       )}
-                      {hasRole('SUPER_ADMIN', 'ADMIN', 'ACCOUNTS') &&
+                      {hasRole('SUPER_ADMIN', 'ADMIN', 'ACCOUNTS', 'HR_EXECUTIVE') &&
                         a.payment.paymentStatus !== 'Not Applicable' &&
                         a.payment.paymentStatus !== 'Paid' && (
                           <Button size="sm" leftIcon={<CreditCard className="w-3.5 h-3.5" />}
@@ -1160,7 +1177,7 @@ export const CandidateDetailPage = () => {
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-semibold text-slate-700">Loan Status</h3>
-                    {hasRole('SUPER_ADMIN', 'ADMIN') && (
+                    {hasRole('SUPER_ADMIN', 'ADMIN', 'HR_EXECUTIVE') && (
                       <button
                         onClick={() => {
                           setLoanForm({
@@ -1206,7 +1223,7 @@ export const CandidateDetailPage = () => {
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-semibold text-slate-700">Campus Status</h3>
-                    {hasRole('SUPER_ADMIN', 'ADMIN') && (
+                    {hasRole('SUPER_ADMIN', 'ADMIN', 'HR_EXECUTIVE') && (
                       <button
                         onClick={() => {
                           setCampusForm({
@@ -1254,15 +1271,15 @@ export const CandidateDetailPage = () => {
             </div>
           )}
 
-          {/* TAB: Commission */}
-          {activeTab === 'commission' && (
+          {/* TAB: Commission (Super Admin Only) */}
+          {activeTab === 'commission' && hasRole('SUPER_ADMIN') && (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-slate-700">Commission Status</h3>
                   <p className="text-xs text-slate-400 mt-0.5">Track commission collection for this placement</p>
                 </div>
-                {hasRole('SUPER_ADMIN', 'ADMIN') && (
+                {hasRole('SUPER_ADMIN') && (
                   <Button size="sm" leftIcon={<Edit2 className="w-3.5 h-3.5" />}
                     onClick={() => {
                       setCommissionForm({
