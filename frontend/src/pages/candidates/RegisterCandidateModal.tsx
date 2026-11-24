@@ -110,8 +110,27 @@ export const RegisterCandidateModal: React.FC<Props> = ({ isOpen, onClose, onSuc
     } catch {}
   };
 
+  const selectedVendor = vendors.find((v) => v._id === form.vendorId);
+  const isCrackSelected = Boolean(
+    (selectedVendor && /crack/i.test(selectedVendor.name)) ||
+    (form.processType && /crack/i.test(form.processType))
+  );
+
   const handleChange = (field: string, value: string) => {
-    setForm((f) => ({ ...f, [field]: value }));
+    setForm((f) => {
+      const next = { ...f, [field]: value };
+      if (field === 'vendorId') {
+        const v = vendors.find((vend) => vend._id === value);
+        if (v && /crack/i.test(v.name)) {
+          next.processType = 'Crack-ed';
+          next.batchNumber = '';
+        }
+      }
+      if (field === 'processType' && /crack/i.test(value)) {
+        next.batchNumber = '';
+      }
+      return next;
+    });
     if (field === 'email' || field === 'mobileNumber') {
       setDupCheck(null);
     }
@@ -150,7 +169,7 @@ export const RegisterCandidateModal: React.FC<Props> = ({ isOpen, onClose, onSuc
       } else if (form.hrReferenceId) {
         fd.append('hrReferenceId', form.hrReferenceId);
       }
-      if (form.batchNumber) fd.append('batchNumber', form.batchNumber);
+      if (!isCrackSelected && form.batchNumber) fd.append('batchNumber', form.batchNumber);
       fd.append('paymentRoute', form.paymentRoute);
       if (form.processType) fd.append('processType', form.processType);
       if (form.registrationDate) fd.append('registrationDate', form.registrationDate);
@@ -306,27 +325,44 @@ export const RegisterCandidateModal: React.FC<Props> = ({ isOpen, onClose, onSuc
               value={form.registrationDate}
               onChange={(e) => handleChange('registrationDate', e.target.value)}
             />
-            <Input label="Batch Number" placeholder="Optional batch" value={form.batchNumber}
-              onChange={(e) => handleChange('batchNumber', e.target.value)} />
+            {!isCrackSelected && (
+              <Input
+                label="Batch Number"
+                placeholder="Optional batch"
+                value={form.batchNumber}
+                onChange={(e) => handleChange('batchNumber', e.target.value)}
+              />
+            )}
             <div>
               <label className="fic-label">Payment Route</label>
               <div className="flex gap-3 mt-1">
                 <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input type="radio" name="paymentRoute" value="ROUTE_A_VENDOR_LOAN"
+                  <input
+                    type="radio"
+                    name="paymentRoute"
+                    value="ROUTE_A_VENDOR_LOAN"
                     checked={form.paymentRoute === 'ROUTE_A_VENDOR_LOAN'}
-                    onChange={(e) => handleChange('paymentRoute', e.target.value)} />
+                    onChange={(e) => handleChange('paymentRoute', e.target.value)}
+                  />
                   Vendor Loan
                 </label>
                 <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input type="radio" name="paymentRoute" value="ROUTE_B_FULL_PAYMENT"
+                  <input
+                    type="radio"
+                    name="paymentRoute"
+                    value="ROUTE_B_FULL_PAYMENT"
                     checked={form.paymentRoute === 'ROUTE_B_FULL_PAYMENT'}
-                    onChange={(e) => handleChange('paymentRoute', e.target.value)} />
+                    onChange={(e) => handleChange('paymentRoute', e.target.value)}
+                  />
                   Full Payment
                 </label>
               </div>
               {form.paymentRoute === 'ROUTE_B_FULL_PAYMENT' && (
                 <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
-                  <CheckCircle className="w-3 h-3" /> No Manipal enrollment or loan will be created.
+                  <CheckCircle className="w-3 h-3" />{' '}
+                  {isCrackSelected
+                    ? 'Direct full payment confirmed. No loan processing will be created.'
+                    : 'Direct full payment confirmed. No vendor loan will be created.'}
                 </p>
               )}
             </div>

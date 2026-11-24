@@ -2077,7 +2077,7 @@ export const downloadCandidateImportTemplate = async (_req: Request, res: Respon
       programName: 'HDFC Life Advisor Program',
       vendorName: 'Crack-ed',
       hrReference: '',
-      batchNumber: 'Batch 2026-B',
+      batchNumber: '',
       paymentRoute: 'ROUTE_B_FULL_PAYMENT',
     });
 
@@ -2315,85 +2315,148 @@ export const importCandidatesExcel = async (req: Request, res: Response): Promis
       }
 
       // Payment route
-      const paymentRoute = paymentRouteInput.includes('FULL')
-        ? 'ROUTE_B_FULL_PAYMENT'
-        : 'ROUTE_A_VENDOR_LOAN';
+      const isFull =
+        paymentRouteInput.includes('FULL') ||
+        paymentRouteInput.includes('ROUTE_B') ||
+        paymentRouteInput.includes('DIRECT');
+      const paymentRoute = isFull ? 'ROUTE_B_FULL_PAYMENT' : 'ROUTE_A_VENDOR_LOAN';
 
       // Parse Date of Birth
       let parsedDob: Date | undefined;
       if (dobVal) {
-        const d = new Date(dobVal);
-        if (!isNaN(d.getTime())) parsedDob = d;
+        if (dobVal instanceof Date) {
+          parsedDob = isNaN(dobVal.getTime()) ? undefined : dobVal;
+        } else {
+          const d = new Date(dobVal);
+          if (!isNaN(d.getTime())) parsedDob = d;
+        }
       }
 
-      // Create Candidate
-      const candidate = await Candidate.create({
-        fullName,
-        email,
-        mobileNumber,
-        dateOfBirth: parsedDob,
-        state: state || undefined,
-        district: district || undefined,
-        city: district || undefined,
-      });
+      // Check process type and batch number
+      const isCrack =
+        Boolean(resolvedVendor?.name && /crack/i.test(resolvedVendor.name)) ||
+        Boolean(resolvedProgram?.name && /crack/i.test(resolvedProgram.name));
+      const processType = isCrack ? 'Crack-ed' : 'Manipal';
+      const cleanBatch = isCrack ? undefined : (batchNumber ? batchNumber.trim() : undefined);
 
-      // Build initial interview rounds from program configuration
-      const sortedRounds = [...(resolvedProgram.interviewRoundsConfig || [])].sort((a, b) => a.order - b.order);
-      const interviewRounds = sortedRounds.map((r) => ({
-        roundId: r.roundId,
-        roundName: r.roundName,
-        isMandatory: r.isMandatory !== undefined ? r.isMandatory : true,
-        order: r.order,
-        currentStatus: 'Yet to Schedule' as const,
-        interviewMode: r.defaultMode || 'Online',
-        attempts: [],
-      }));
+      try {
+        // Create Candidate
+        const candidate = await Candidate.create({
+          fullName,
+          email,
+          mobileNumber,
+          dateOfBirth: parsedDob,
+          state: state || undefined,
+          district: district || undefined,
+          city: district || undefined,
+        });
 
-      // Generate unique application number
-      const applicationNumber = await generateApplicationNumber();
+        // Build initial interview rounds from program configuration
+        const sortedRounds = [...(resolvedProgram.interviewRoundsConfig || [])].sort((a, b) => a.order - b.order);
+        const interviewRounds = sortedRounds.map((r) => ({
+          roundId: r.roundId,
+          roundName: r.roundName,
+          isMandatory: r.isMandatory !== undefined ? r.isMandatory : true,
+          order: r.order,
+          currentStatus: 'Yet to Schedule' as const,
+          interviewMode: r.defaultMode || 'Online',
+          attempts: [],
+        }));
 
-      // Create Application
-      const application = await Application.create({
-        applicationNumber,
-        candidateId: candidate._id,
-        candidateName: candidate.fullName,
-        candidateEmail: candidate.email,
-        candidateMobile: candidate.mobileNumber,
-        bankId: resolvedBank._id,
-        bankName: resolvedBank.name,
-        programId: resolvedProgram._id,
-        programName: resolvedProgram.name,
-        vendorId: resolvedVendor?._id || undefined,
-        vendorName: resolvedVendor?.name || '',
-        hrReferenceId: resolvedHr?._id || undefined,
-        hrReferenceName: resolvedHr?.name || '',
-        batchNumber: batchNumber || undefined,
-        paymentRoute,
-        overallStatus: 'Registered',
-        interviewRounds,
-        registrationDate: new Date(),
-      });
+        // Generate unique application number
+        const applicationNumber = await generateApplicationNumber();
 
-      // Create initial Payment record if Route A
-      if (paymentRoute === 'ROUTE_A_VENDOR_LOAN') {
+        // Create Application
+        const application = await Application.create({
+          applicationNumber,
+          candidateId: candidate._id,
+          candidateName: candidate.fullName,
+          candidateEmail: candidate.email,
+          candidateMobile: candidate.mobileNumber,
+          bankId: resolvedBank._id,
+          bankName: resolvedBank.name,
+          programId: resolvedProgram._id,
+          programName: resolvedProgram.name,
+          vendorId: resolvedVendor?._id || undefined,
+          vendorName: resolvedVendor?.name || '',
+          hrReferenceId: resolvedHr?._id || undefined,
+          hrReferenceName: resolvedHr?.name || '',
+          batchNumber: cleanBatch,
+          paymentRoute,
+          overallStatus: 'Registered',
+          interviewRounds,
+          processType,
+          processDates: {
+            registration: new Date(),
+          },
+          registrationDate: new Date(),
+        });
+
+        // Create initial Payment record
+        const isFullPayment = paymentRoute === 'ROUTE_B_FULL_PAYMENT';
+        const paymentStatus = isFullPayment ? 'Not Applicable' : 'Pending';
+        const feeAmount = isFullPayment ? 0 : (resolvedProgram.enrollmentFeeAmount || 0);
+        const totalFee = resolvedProgram.totalProgramFee || feeAmount;
+
         await Payment.create({
           applicationId: application._id,
-          applicationNumber: application.applicationNumber,
           candidateId: candidate._id,
-          bankId: resolvedBank._id,
-          programId: resolvedProgram._id,
-          enrollmentFeeAmount: resolvedProgram.enrollmentFeeAmount || 0,
-          paymentTrigger: resolvedProgram.paymentTrigger || 'AFTER_SELECTION',
-          paymentStatus: 'Pending',
+          applicationNumber: application.applicationNumber,
+          candidateName: candidate.fullName,
+          paymentRoute,
+          totalProgramFee: totalFee,
+          totalProgramFeeBalance: isFullPayment ? 0 : totalFee,
+          enrollmentFeeAmount: feeAmount,
           amountPaid: 0,
-          balanceAmount: resolvedProgram.enrollmentFeeAmount || 0,
+          balanceAmount: feeAmount,
+          paymentStatus,
+          paymentTrigger: resolvedProgram.paymentTrigger || 'AFTER_SELECTION',
           transactions: [],
+          refund: {
+            isRefundable: resolvedProgram.isRefundable !== undefined ? resolvedProgram.isRefundable : true,
+            refundAmount: 0,
+            refundStatus: 'NONE',
+          },
+        });
+
+        // Create Loan Status record
+        const isLoanRequired = !isFullPayment && Boolean(resolvedProgram.loanAvailable);
+        const loanStatusValue = isFullPayment
+          ? 'Not Applicable'
+          : !resolvedProgram.loanAvailable
+            ? 'Not Applicable'
+            : 'Not Sanctioned';
+
+        await LoanStatus.create({
+          applicationId: application._id,
+          candidateId: candidate._id,
+          applicationNumber: application.applicationNumber,
+          isLoanRequired,
+          loanStatus: loanStatusValue,
+          vendorName: resolvedVendor?.name || '',
+        });
+
+        // Create Campus Status record if applicable
+        if (resolvedProgram.campusApplicable) {
+          await CampusStatus.create({
+            applicationId: application._id,
+            candidateId: candidate._id,
+            applicationNumber: application.applicationNumber,
+            campusStatus: 'Pending',
+          });
+        }
+
+        seenMobiles.add(mobileNumber);
+        seenEmails.add(email);
+        createdApplications.push(application.applicationNumber);
+      } catch (rowErr: any) {
+        console.error(`Error importing candidate on row ${rowNumber}:`, rowErr);
+        errors.push({
+          row: rowNumber,
+          candidate: fullName || `Row ${rowNumber}`,
+          error: rowErr.message || 'Failed to save candidate records.',
         });
       }
-
-      seenMobiles.add(mobileNumber);
-      seenEmails.add(email);
-      createdApplications.push(application.applicationNumber);
     }
 
     if (createdApplications.length > 0) {

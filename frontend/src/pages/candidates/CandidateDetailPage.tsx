@@ -354,7 +354,16 @@ export const CandidateDetailPage = () => {
     }
     setDetailsLoading(true);
     try {
-      await applicationsApi.updateCandidateDetails(id!, detailsForm);
+      const selectedVendor = vendors.find((v) => v._id === detailsForm.vendorId);
+      const isCrk = Boolean(
+        (selectedVendor && /crack/i.test(selectedVendor.name)) ||
+        (detailsForm.processType && /crack/i.test(detailsForm.processType))
+      );
+      const payload = {
+        ...detailsForm,
+        batchNumber: isCrk ? '' : detailsForm.batchNumber,
+      };
+      await applicationsApi.updateCandidateDetails(id!, payload);
       toast.success('Candidate details updated successfully!');
       setShowEditDetailsModal(false);
       window.dispatchEvent(new Event('fic:stats-refresh'));
@@ -2255,7 +2264,16 @@ export const CandidateDetailPage = () => {
                 <select
                   className="fic-input"
                   value={detailsForm.vendorId}
-                  onChange={(e) => setDetailsForm({ ...detailsForm, vendorId: e.target.value })}
+                  onChange={(e) => {
+                    const vendId = e.target.value;
+                    const v = vendors.find((vend) => vend._id === vendId);
+                    const isCrk = v && /crack/i.test(v.name);
+                    setDetailsForm({
+                      ...detailsForm,
+                      vendorId: vendId,
+                      ...(isCrk ? { processType: 'Crack-ed', batchNumber: '' } : {}),
+                    });
+                  }}
                 >
                   <option value="">Select Vendor</option>
                   {vendors.map((v) => (
@@ -2271,7 +2289,15 @@ export const CandidateDetailPage = () => {
                 <select
                   className="fic-input font-bold"
                   value={detailsForm.processType}
-                  onChange={(e) => setDetailsForm({ ...detailsForm, processType: e.target.value })}
+                  onChange={(e) => {
+                    const pType = e.target.value;
+                    const isCrk = /crack/i.test(pType);
+                    setDetailsForm({
+                      ...detailsForm,
+                      processType: pType,
+                      ...(isCrk ? { batchNumber: '' } : {}),
+                    });
+                  }}
                 >
                   <option value="Manipal">🎓 Manipal Process</option>
                   <option value="Crack-ed">⚡ Crack-ED Process</option>
@@ -2314,16 +2340,22 @@ export const CandidateDetailPage = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="fic-label">Batch Number</label>
-                <input
-                  type="text"
-                  className="fic-input"
-                  placeholder="e.g. Batch 2026-A"
-                  value={detailsForm.batchNumber}
-                  onChange={(e) => setDetailsForm({ ...detailsForm, batchNumber: e.target.value })}
-                />
-              </div>
+              {!Boolean(
+                (vendors.find((v) => v._id === detailsForm.vendorId) &&
+                  /crack/i.test(vendors.find((v) => v._id === detailsForm.vendorId)?.name || '')) ||
+                (detailsForm.processType && /crack/i.test(detailsForm.processType))
+              ) && (
+                <div>
+                  <label className="fic-label">Batch Number</label>
+                  <input
+                    type="text"
+                    className="fic-input"
+                    placeholder="e.g. Batch 2026-A"
+                    value={detailsForm.batchNumber}
+                    onChange={(e) => setDetailsForm({ ...detailsForm, batchNumber: e.target.value })}
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="fic-label">Remarks</label>
