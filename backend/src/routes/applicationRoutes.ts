@@ -14,6 +14,7 @@ import {
   getApplicationActivityLogs,
   getDashboardStats,
   updateCommissionStatus,
+  bulkUpdateCommissionStatus,
   updateEnrollmentFee,
   updateCandidateAndApplicationDetails,
   syncProgramFee,
@@ -81,6 +82,7 @@ router.patch('/:applicationId/campus', hrAndAbove, updateCampusStatus);
 router.get('/logs/:applicationNumber', getApplicationActivityLogs);
 
 // Commission status (Super Admin only)
+router.patch('/commission/bulk', superAdminOnly, bulkUpdateCommissionStatus);
 router.patch('/:applicationId/commission', superAdminOnly, updateCommissionStatus);
 
 // Enrollment fee edit

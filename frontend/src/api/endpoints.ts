@@ -82,6 +82,8 @@ export const applicationsApi = {
     api.get<ActivityLog[]>(`/applications/logs/${applicationNumber}`),
   updateCommission: (applicationId: string, data: any) =>
     api.patch(`/applications/${applicationId}/commission`, data),
+  bulkUpdateCommission: (data: { applicationIds: string[]; commissionStatus: string; commissionCollectedDate?: string }) =>
+    api.patch('/applications/commission/bulk', data),
   updateEnrollmentFee: (applicationId: string, data: any) =>
     api.patch(`/applications/${applicationId}/payment/fee`, data),
   updateCandidateDetails: (id: string, data: any) =>

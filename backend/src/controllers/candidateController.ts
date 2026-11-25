@@ -523,7 +523,7 @@ export const getApplications = async (req: Request, res: Response): Promise<void
     const [applications, total] = await Promise.all([
       Application.find(filter)
         .select(
-          'applicationNumber candidateName candidateEmail candidateMobile bankName programName vendorName hrReferenceName batchNumber overallStatus interviewRounds paymentRoute registrationDate processType processDates updatedAt'
+          'applicationNumber candidateName candidateEmail candidateMobile bankName programName vendorName hrReferenceName batchNumber overallStatus interviewRounds paymentRoute registrationDate processType processDates commissionStatus commissionAmount commissionCollectedDate commissionNotes commissionUpdatedByName commissionUpdatedAt updatedAt'
         )
         .sort(sort)
         .skip(skip)
@@ -1817,9 +1817,24 @@ export const updateCommissionStatus = async (req: Request, res: Response): Promi
 
     const previous = application.commissionStatus;
 
-    if (commissionStatus) application.commissionStatus = commissionStatus;
-    if (commissionAmount !== undefined) application.commissionAmount = Number(commissionAmount);
-    if (commissionCollectedDate) application.commissionCollectedDate = new Date(commissionCollectedDate);
+    if (commissionStatus) {
+      const upper = String(commissionStatus).toUpperCase().trim();
+      if (upper === 'COMPLETED' || upper === 'COLLECTED' || upper === 'SETTLED' || upper === 'PAID') {
+        application.commissionStatus = 'COLLECTED';
+      } else if (upper === 'NOT_APPLICABLE' || upper === 'NA') {
+        application.commissionStatus = 'NOT_APPLICABLE';
+      } else {
+        application.commissionStatus = 'PENDING';
+      }
+    }
+    if (commissionAmount !== undefined && commissionAmount !== '') {
+      application.commissionAmount = Number(commissionAmount);
+    }
+    if (commissionCollectedDate) {
+      application.commissionCollectedDate = new Date(commissionCollectedDate);
+    } else if (application.commissionStatus === 'COLLECTED' && !application.commissionCollectedDate) {
+      application.commissionCollectedDate = new Date();
+    }
     if (commissionNotes !== undefined) application.commissionNotes = commissionNotes;
     application.commissionUpdatedBy = req.user?.userId;
     application.commissionUpdatedByName = req.user?.name;
@@ -1841,6 +1856,60 @@ export const updateCommissionStatus = async (req: Request, res: Response): Promi
     sendSuccess(res, application, 'Commission status updated successfully.');
   } catch (error) {
     sendError(res, 'Failed to update commission status.', 500);
+  }
+};
+
+export const bulkUpdateCommissionStatus = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { applicationIds, commissionStatus, commissionCollectedDate, commissionAmount } = req.body;
+    if (!Array.isArray(applicationIds) || applicationIds.length === 0) {
+      sendError(res, 'Please provide an array of application IDs to update.', 400);
+      return;
+    }
+
+    let normalizedStatus: 'COLLECTED' | 'PENDING' | 'NOT_APPLICABLE' = 'COLLECTED';
+    if (commissionStatus) {
+      const upper = String(commissionStatus).toUpperCase().trim();
+      if (upper === 'PENDING') {
+        normalizedStatus = 'PENDING';
+      } else if (upper === 'NOT_APPLICABLE' || upper === 'NA') {
+        normalizedStatus = 'NOT_APPLICABLE';
+      } else {
+        normalizedStatus = 'COLLECTED';
+      }
+    }
+
+    const collectedDate = commissionCollectedDate
+      ? new Date(commissionCollectedDate)
+      : normalizedStatus === 'COLLECTED'
+        ? new Date()
+        : undefined;
+
+    const updateFields: any = {
+      commissionStatus: normalizedStatus,
+      commissionUpdatedBy: req.user?.userId,
+      commissionUpdatedByName: req.user?.name,
+      commissionUpdatedAt: new Date(),
+    };
+    if (collectedDate) {
+      updateFields.commissionCollectedDate = collectedDate;
+    }
+    if (commissionAmount !== undefined && commissionAmount !== '') {
+      updateFields.commissionAmount = Number(commissionAmount);
+    }
+
+    await Application.updateMany(
+      { _id: { $in: applicationIds } },
+      { $set: updateFields }
+    );
+
+    sendSuccess(
+      res,
+      { updatedCount: applicationIds.length, status: normalizedStatus },
+      `Successfully updated ${applicationIds.length} candidate commission(s) to ${normalizedStatus}.`
+    );
+  } catch (error) {
+    sendError(res, 'Failed to bulk update commission status.', 500);
   }
 };
 

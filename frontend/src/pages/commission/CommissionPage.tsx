@@ -23,6 +23,9 @@ import {
   ChevronDown,
   ChevronUp,
   Download,
+  GraduationCap,
+  Zap,
+  CheckCheck,
 } from 'lucide-react';
 import { applicationsApi } from '../../api/endpoints';
 import { Application } from '../../types';
@@ -82,7 +85,9 @@ export const CommissionPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'COLLECTED' | 'NOT_APPLICABLE'>('ALL');
+  const [processFilter, setProcessFilter] = useState<'ALL' | 'MANIPAL' | 'CRACKED'>('ALL');
   const [selectedAppIds, setSelectedAppIds] = useState<string[]>([]);
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   // Commission Edit Modal
   const [showEditModal, setShowEditModal] = useState(false);
@@ -224,6 +229,13 @@ export const CommissionPage = () => {
   // Filtered applications
   const filteredApps = useMemo(() => {
     return applications.filter((app) => {
+      const isCracked = Boolean(
+        (app.processType && /crack/i.test(app.processType)) ||
+        (app.vendorName && /crack/i.test(app.vendorName))
+      );
+      if (processFilter === 'MANIPAL' && isCracked) return false;
+      if (processFilter === 'CRACKED' && !isCracked) return false;
+
       if (statusFilter !== 'ALL') {
         const currentSt = app.commissionStatus || 'PENDING';
         if (currentSt !== statusFilter) return false;
@@ -234,40 +246,126 @@ export const CommissionPage = () => {
         const appNo = (app.applicationNumber || '').toLowerCase();
         const bank = (app.bankName || '').toLowerCase();
         const vendor = (app.vendorName || '').toLowerCase();
-        return name.includes(q) || appNo.includes(q) || bank.includes(q) || vendor.includes(q);
+        const proc = (app.processType || '').toLowerCase();
+        return name.includes(q) || appNo.includes(q) || bank.includes(q) || vendor.includes(q) || proc.includes(q);
       }
       return true;
     });
-  }, [applications, statusFilter, searchQuery]);
+  }, [applications, statusFilter, processFilter, searchQuery]);
 
-  // Aggregate Metrics
+  // Aggregate Metrics with Separate Process Metrics
   const metrics = useMemo(() => {
     let collectedCount = 0;
     let collectedAmount = 0;
     let pendingCount = 0;
     let pendingAmount = 0;
 
+    let manipalTotalCount = 0;
+    let manipalCollectedCount = 0;
+    let manipalCollectedAmount = 0;
+    let manipalPendingCount = 0;
+    let manipalPendingAmount = 0;
+
+    let crackedTotalCount = 0;
+    let crackedCollectedCount = 0;
+    let crackedCollectedAmount = 0;
+    let crackedPendingCount = 0;
+    let crackedPendingAmount = 0;
+
     applications.forEach((app) => {
       const amount = Number(app.commissionAmount) || 14000;
-      if (app.commissionStatus === 'COLLECTED') {
+      const isCracked = Boolean(
+        (app.processType && /crack/i.test(app.processType)) ||
+        (app.vendorName && /crack/i.test(app.vendorName))
+      );
+      const isCollected = app.commissionStatus === 'COLLECTED';
+      const isNotApplicable = app.commissionStatus === 'NOT_APPLICABLE';
+
+      if (isCracked) {
+        crackedTotalCount += 1;
+        if (isCollected) {
+          crackedCollectedCount += 1;
+          crackedCollectedAmount += amount;
+        } else if (!isNotApplicable) {
+          crackedPendingCount += 1;
+          crackedPendingAmount += amount;
+        }
+      } else {
+        manipalTotalCount += 1;
+        if (isCollected) {
+          manipalCollectedCount += 1;
+          manipalCollectedAmount += amount;
+        } else if (!isNotApplicable) {
+          manipalPendingCount += 1;
+          manipalPendingAmount += amount;
+        }
+      }
+
+      if (isCollected) {
         collectedCount += 1;
         collectedAmount += amount;
-      } else if (app.commissionStatus === 'NOT_APPLICABLE') {
-        // Ignored
-      } else {
+      } else if (!isNotApplicable) {
         pendingCount += 1;
         pendingAmount += amount;
       }
     });
 
     return {
+      totalCount: applications.length,
       collectedCount,
       collectedAmount,
       pendingCount,
       pendingAmount,
-      totalCount: applications.length,
+      manipalTotalCount,
+      manipalCollectedCount,
+      manipalCollectedAmount,
+      manipalPendingCount,
+      manipalPendingAmount,
+      manipalTotalAmount: manipalCollectedAmount + manipalPendingAmount,
+      crackedTotalCount,
+      crackedCollectedCount,
+      crackedCollectedAmount,
+      crackedPendingCount,
+      crackedPendingAmount,
+      crackedTotalAmount: crackedCollectedAmount + crackedPendingAmount,
     };
   }, [applications]);
+
+  const handleBulkMarkCollected = async () => {
+    if (selectedAppIds.length === 0) return;
+    setBulkLoading(true);
+    try {
+      await applicationsApi.bulkUpdateCommission({
+        applicationIds: selectedAppIds,
+        commissionStatus: 'COLLECTED',
+      });
+      toast.success(`Marked ${selectedAppIds.length} candidate(s) as Collected / Settled!`);
+      setSelectedAppIds([]);
+      await loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update commission status.');
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  const handleBulkMarkPending = async () => {
+    if (selectedAppIds.length === 0) return;
+    setBulkLoading(true);
+    try {
+      await applicationsApi.bulkUpdateCommission({
+        applicationIds: selectedAppIds,
+        commissionStatus: 'PENDING',
+      });
+      toast.success(`Marked ${selectedAppIds.length} candidate(s) as Pending!`);
+      setSelectedAppIds([]);
+      await loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update commission status.');
+    } finally {
+      setBulkLoading(false);
+    }
+  };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
@@ -509,27 +607,33 @@ export const CommissionPage = () => {
         </div>
       </div>
 
-      {/* KPI Cards Grid */}
+      {/* Top Overview KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Placed */}
+        {/* Total Tracked */}
         <div className="bg-white rounded-xl border border-fic-border p-4 shadow-2xs">
           <div className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Total Candidates</div>
           <div className="text-2xl font-black text-slate-800 mt-1">{metrics.totalCount}</div>
           <div className="text-[11px] text-slate-400 mt-0.5">Tracked in CRM</div>
         </div>
 
-        {/* Collected */}
-        <div className="bg-emerald-50/60 rounded-xl border border-emerald-200 p-4 shadow-2xs">
-          <div className="text-xs text-emerald-700 font-semibold uppercase tracking-wider">Commission Collected</div>
+        {/* Total Collected */}
+        <div className="bg-emerald-50/70 rounded-xl border border-emerald-200 p-4 shadow-2xs">
+          <div className="text-xs text-emerald-700 font-semibold uppercase tracking-wider flex items-center justify-between">
+            <span>Total Collected</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+          </div>
           <div className="text-2xl font-black text-emerald-800 mt-1">
             ₹{metrics.collectedAmount.toLocaleString('en-IN')}
           </div>
           <div className="text-[11px] text-emerald-600 mt-0.5">{metrics.collectedCount} candidates settled</div>
         </div>
 
-        {/* Pending */}
-        <div className="bg-amber-50/60 rounded-xl border border-amber-200 p-4 shadow-2xs">
-          <div className="text-xs text-amber-700 font-semibold uppercase tracking-wider">Commission Pending</div>
+        {/* Total Pending */}
+        <div className="bg-amber-50/70 rounded-xl border border-amber-200 p-4 shadow-2xs">
+          <div className="text-xs text-amber-700 font-semibold uppercase tracking-wider flex items-center justify-between">
+            <span>Total Pending</span>
+            <Clock className="w-4 h-4 text-amber-600" />
+          </div>
           <div className="text-2xl font-black text-amber-800 mt-1">
             ₹{metrics.pendingAmount.toLocaleString('en-IN')}
           </div>
@@ -537,30 +641,258 @@ export const CommissionPage = () => {
         </div>
 
         {/* Selected for Invoicing */}
-        <div className="bg-purple-50/60 rounded-xl border border-purple-200 p-4 shadow-2xs">
-          <div className="text-xs text-purple-700 font-semibold uppercase tracking-wider">Selected for Invoice</div>
+        <div className="bg-purple-50/70 rounded-xl border border-purple-200 p-4 shadow-2xs">
+          <div className="text-xs text-purple-700 font-semibold uppercase tracking-wider flex items-center justify-between">
+            <span>Selected for Invoice</span>
+            <FileText className="w-4 h-4 text-purple-600" />
+          </div>
           <div className="text-2xl font-black text-purple-800 mt-1">{selectedAppIds.length}</div>
           <div className="text-[11px] text-purple-600 mt-0.5">Click "Raise Tax Invoice" to generate</div>
         </div>
       </div>
 
-      {/* Search & Status Filters */}
-      <div className="bg-white rounded-xl border border-fic-border p-4 shadow-2xs flex flex-wrap items-center justify-between gap-3">
-        {/* Status Filter Tabs */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {(['ALL', 'PENDING', 'COLLECTED', 'NOT_APPLICABLE'] as const).map((st) => (
+      {/* DEDICATED SEPARATE PROCESS KPI CARDS: MANIPAL vs CRACK-ED */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* MANIPAL PROCESS COMMISSION KPI CARD */}
+        <div
+          onClick={() => setProcessFilter(processFilter === 'MANIPAL' ? 'ALL' : 'MANIPAL')}
+          className={`cursor-pointer rounded-2xl p-5 border-2 transition-all shadow-xs ${
+            processFilter === 'MANIPAL'
+              ? 'bg-blue-50/80 border-blue-500 ring-2 ring-blue-200'
+              : 'bg-white border-blue-200 hover:border-blue-300 hover:shadow-sm'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-3 pb-3 border-b border-blue-100">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                <GraduationCap className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                  🎓 Manipal Process Commission
+                </h3>
+                <span className="text-[11px] text-slate-500">{metrics.manipalTotalCount} candidates enrolled</span>
+              </div>
+            </div>
+            <div className="text-right">
+              <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider block">Total Pipeline</span>
+              <span className="text-sm font-black text-blue-900">₹{metrics.manipalTotalAmount.toLocaleString('en-IN')}</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 mt-4">
+            {/* Manipal Collected */}
+            <div className="bg-emerald-50/90 border border-emerald-200 rounded-xl p-3">
+              <div className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                Manipal Collected
+              </div>
+              <div className="text-xl font-black text-emerald-900 mt-1">
+                ₹{metrics.manipalCollectedAmount.toLocaleString('en-IN')}
+              </div>
+              <div className="text-[11px] text-emerald-700 mt-0.5 font-medium">
+                {metrics.manipalCollectedCount} candidates settled
+              </div>
+            </div>
+
+            {/* Manipal Pending */}
+            <div className="bg-amber-50/90 border border-amber-200 rounded-xl p-3">
+              <div className="text-[11px] font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                Manipal Pending
+              </div>
+              <div className="text-xl font-black text-amber-900 mt-1">
+                ₹{metrics.manipalPendingAmount.toLocaleString('en-IN')}
+              </div>
+              <div className="text-[11px] text-amber-700 mt-0.5 font-medium">
+                {metrics.manipalPendingCount} candidates pending
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3.5 flex items-center justify-between text-xs text-blue-700 font-semibold">
+            <span>
+              {processFilter === 'MANIPAL' ? '✓ Currently Showing Manipal Candidates' : 'Click to filter Manipal candidates'}
+            </span>
+            <span className="text-[11px] bg-blue-100/80 px-2 py-0.5 rounded-full border border-blue-200">
+              {metrics.manipalTotalCount > 0 ? `${Math.round((metrics.manipalCollectedCount / metrics.manipalTotalCount) * 100)}% collected` : '0%'}
+            </span>
+          </div>
+        </div>
+
+        {/* CRACK-ED PROCESS COMMISSION KPI CARD */}
+        <div
+          onClick={() => setProcessFilter(processFilter === 'CRACKED' ? 'ALL' : 'CRACKED')}
+          className={`cursor-pointer rounded-2xl p-5 border-2 transition-all shadow-xs ${
+            processFilter === 'CRACKED'
+              ? 'bg-amber-50/80 border-amber-500 ring-2 ring-amber-200'
+              : 'bg-white border-amber-200 hover:border-amber-300 hover:shadow-sm'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-3 pb-3 border-b border-amber-100">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
+                <Zap className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                  ⚡ Crack-ED Process Commission
+                </h3>
+                <span className="text-[11px] text-slate-500">{metrics.crackedTotalCount} candidates enrolled</span>
+              </div>
+            </div>
+            <div className="text-right">
+              <span className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider block">Total Pipeline</span>
+              <span className="text-sm font-black text-amber-900">₹{metrics.crackedTotalAmount.toLocaleString('en-IN')}</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 mt-4">
+            {/* Crack-ed Collected */}
+            <div className="bg-emerald-50/90 border border-emerald-200 rounded-xl p-3">
+              <div className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                Crack-ED Collected
+              </div>
+              <div className="text-xl font-black text-emerald-900 mt-1">
+                ₹{metrics.crackedCollectedAmount.toLocaleString('en-IN')}
+              </div>
+              <div className="text-[11px] text-emerald-700 mt-0.5 font-medium">
+                {metrics.crackedCollectedCount} candidates settled
+              </div>
+            </div>
+
+            {/* Crack-ed Pending */}
+            <div className="bg-amber-50/90 border border-amber-200 rounded-xl p-3">
+              <div className="text-[11px] font-bold text-amber-800 uppercase tracking-wider flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                Crack-ED Pending
+              </div>
+              <div className="text-xl font-black text-amber-900 mt-1">
+                ₹{metrics.crackedPendingAmount.toLocaleString('en-IN')}
+              </div>
+              <div className="text-[11px] text-amber-700 mt-0.5 font-medium">
+                {metrics.crackedPendingCount} candidates pending
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3.5 flex items-center justify-between text-xs text-amber-800 font-semibold">
+            <span>
+              {processFilter === 'CRACKED' ? '✓ Currently Showing Crack-ED Candidates' : 'Click to filter Crack-ED candidates'}
+            </span>
+            <span className="text-[11px] bg-amber-100/80 px-2 py-0.5 rounded-full border border-amber-200">
+              {metrics.crackedTotalCount > 0 ? `${Math.round((metrics.crackedCollectedCount / metrics.crackedTotalCount) * 100)}% collected` : '0%'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Bulk Action Toolbar (When candidates are checked) */}
+      {selectedAppIds.length > 0 && (
+        <div className="bg-purple-50 border-2 border-purple-300 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 shadow-xs animate-in fade-in duration-200">
+          <div className="flex items-center gap-2">
+            <span className="w-6 h-6 rounded-full bg-purple-600 text-white text-xs font-bold flex items-center justify-center">
+              {selectedAppIds.length}
+            </span>
+            <span className="text-xs font-bold text-purple-900">
+              Candidate(s) Selected for Actions
+            </span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              size="sm"
+              isLoading={bulkLoading}
+              onClick={handleBulkMarkCollected}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs shadow-2xs"
+              leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}
+            >
+              Mark as Collected / Settled ({selectedAppIds.length})
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              isLoading={bulkLoading}
+              onClick={handleBulkMarkPending}
+              className="text-xs text-amber-800 border-amber-300 hover:bg-amber-100/70"
+              leftIcon={<Clock className="w-3.5 h-3.5" />}
+            >
+              Mark as Pending
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleRaiseInvoice}
+              className="bg-purple-600 hover:bg-purple-700 text-white text-xs shadow-2xs"
+              leftIcon={<FileText className="w-3.5 h-3.5" />}
+            >
+              Raise Tax Invoice ({selectedAppIds.length})
+            </Button>
             <button
-              key={st}
-              onClick={() => setStatusFilter(st)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                statusFilter === st
-                  ? 'bg-fic-navy text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              onClick={() => setSelectedAppIds([])}
+              className="text-xs text-slate-500 hover:text-slate-800 underline ml-1 cursor-pointer"
+            >
+              Deselect All
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Search & Status/Process Filters */}
+      <div className="bg-white rounded-xl border border-fic-border p-4 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+        {/* Status Filter Tabs & Process Filters */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Status Filter Tabs */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {(['ALL', 'PENDING', 'COLLECTED', 'NOT_APPLICABLE'] as const).map((st) => (
+              <button
+                key={st}
+                onClick={() => setStatusFilter(st)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  statusFilter === st
+                    ? 'bg-fic-navy text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {st === 'ALL' ? 'All Status' : st.replace(/_/g, ' ')}
+              </button>
+            ))}
+          </div>
+
+          <div className="h-5 w-px bg-slate-200 hidden sm:block" />
+
+          {/* Process Filter Tabs */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+            <button
+              onClick={() => setProcessFilter('ALL')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                processFilter === 'ALL'
+                  ? 'bg-white text-slate-800 shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              {st === 'ALL' ? 'All Candidates' : st.replace(/_/g, ' ')}
+              All Processes
             </button>
-          ))}
+            <button
+              onClick={() => setProcessFilter('MANIPAL')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                processFilter === 'MANIPAL'
+                  ? 'bg-blue-600 text-white shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              🎓 Manipal ({metrics.manipalTotalCount})
+            </button>
+            <button
+              onClick={() => setProcessFilter('CRACKED')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                processFilter === 'CRACKED'
+                  ? 'bg-amber-600 text-white shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              ⚡ Crack-ED ({metrics.crackedTotalCount})
+            </button>
+          </div>
         </div>
 
         {/* Search Input */}
@@ -639,6 +971,17 @@ export const CommissionPage = () => {
                         </span>
                       </td>
                       <td className="p-3.5">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          {Boolean((app.processType && /crack/i.test(app.processType)) || (app.vendorName && /crack/i.test(app.vendorName))) ? (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                              ⚡ Crack-ED
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-200">
+                              🎓 Manipal
+                            </span>
+                          )}
+                        </div>
                         <div className="font-semibold text-slate-700">{app.bankName}</div>
                         <div className="text-[11px] text-slate-400 truncate max-w-xs">{app.programName}</div>
                       </td>
@@ -697,12 +1040,22 @@ export const CommissionPage = () => {
           <div>
             <label className="fic-label">Commission Status *</label>
             <select
-              className="fic-input"
+              className="fic-input font-bold"
               value={commissionForm.commissionStatus}
-              onChange={(e) => setCommissionForm({ ...commissionForm, commissionStatus: e.target.value })}
+              onChange={(e) => {
+                const val = e.target.value;
+                setCommissionForm({
+                  ...commissionForm,
+                  commissionStatus: val,
+                  commissionCollectedDate:
+                    val === 'COLLECTED' && !commissionForm.commissionCollectedDate
+                      ? new Date().toISOString().substring(0, 10)
+                      : commissionForm.commissionCollectedDate,
+                });
+              }}
             >
+              <option value="COLLECTED">✅ Collected / Settled / Completed</option>
               <option value="PENDING">⏳ Pending Collection</option>
-              <option value="COLLECTED">✅ Collected / Settled</option>
               <option value="NOT_APPLICABLE">🚫 Not Applicable</option>
             </select>
           </div>

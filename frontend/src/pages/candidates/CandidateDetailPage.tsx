@@ -1985,11 +1985,24 @@ export const CandidateDetailPage = () => {
         <div className="space-y-4">
           <div>
             <label className="fic-label">Commission Status *</label>
-            <select className="fic-input" value={commissionForm.commissionStatus}
-              onChange={(e) => setCommissionForm({ ...commissionForm, commissionStatus: e.target.value })}>
+            <select
+              className="fic-input font-bold"
+              value={commissionForm.commissionStatus}
+              onChange={(e) => {
+                const val = e.target.value;
+                setCommissionForm({
+                  ...commissionForm,
+                  commissionStatus: val,
+                  commissionCollectedDate:
+                    val === 'COLLECTED' && !commissionForm.commissionCollectedDate
+                      ? new Date().toISOString().substring(0, 10)
+                      : commissionForm.commissionCollectedDate,
+                });
+              }}
+            >
               <option value="">Select Status</option>
-              <option value="PENDING">⏳ Pending</option>
-              <option value="COLLECTED">✅ Collected</option>
+              <option value="COLLECTED">✅ Collected / Settled / Completed</option>
+              <option value="PENDING">⏳ Pending Collection</option>
               <option value="NOT_APPLICABLE">🚫 Not Applicable</option>
             </select>
           </div>
