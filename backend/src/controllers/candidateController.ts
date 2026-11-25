@@ -19,24 +19,94 @@ import { logActivity } from '../utils/auditLogger';
 
 export const checkDuplicate = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { email, mobile } = req.query;
+    const { email, mobile, programId, bankId } = req.query;
 
-    const existingEmail = email
-      ? await Candidate.findOne({ email: String(email).toLowerCase().trim() })
-      : null;
-    const existingMobile = mobile
-      ? await Candidate.findOne({ mobileNumber: String(mobile).trim() })
-      : null;
+    const cleanEmail = email ? String(email).toLowerCase().trim() : '';
+    const cleanMobile = mobile ? String(mobile).trim() : '';
+
+    if (!cleanEmail && !cleanMobile) {
+      sendSuccess(res, {
+        candidateExists: false,
+        emailExists: false,
+        mobileExists: false,
+        isDuplicateProgram: false,
+        duplicateApplication: null,
+        existingCandidate: null,
+        existingApplications: [],
+      });
+      return;
+    }
+
+    const orConditions: any[] = [];
+    if (cleanEmail) orConditions.push({ email: cleanEmail });
+    if (cleanMobile) orConditions.push({ mobileNumber: cleanMobile });
+
+    const existingCandidate = await Candidate.findOne({ $or: orConditions });
+
+    // Find any existing applications associated with this candidate / mobile / email
+    const appOrConditions: any[] = [];
+    if (cleanEmail) appOrConditions.push({ candidateEmail: cleanEmail });
+    if (cleanMobile) appOrConditions.push({ candidateMobile: cleanMobile });
+    if (existingCandidate) appOrConditions.push({ candidateId: existingCandidate._id });
+
+    const existingApplications = await Application.find({ $or: appOrConditions })
+      .select('applicationNumber candidateName candidateEmail candidateMobile bankId bankName programId programName overallStatus')
+      .lean();
+
+    let isDuplicateProgram = false;
+    let duplicateApp: any = null;
+
+    if (programId && existingApplications.length > 0) {
+      const pIdStr = String(programId);
+      duplicateApp = existingApplications.find((app) => {
+        const progMatch = String(app.programId) === pIdStr;
+        const bankMatch = !bankId || String(app.bankId) === String(bankId);
+        return progMatch && bankMatch;
+      });
+      if (duplicateApp) {
+        isDuplicateProgram = true;
+      }
+    }
 
     sendSuccess(res, {
-      emailExists: !!existingEmail,
-      mobileExists: !!existingMobile,
-      existingCandidateEmail: existingEmail
-        ? { id: existingEmail._id, name: existingEmail.fullName, email: existingEmail.email }
+      candidateExists: !!existingCandidate || existingApplications.length > 0,
+      emailExists: !!existingCandidate && existingCandidate.email === cleanEmail,
+      mobileExists: !!existingCandidate && existingCandidate.mobileNumber === cleanMobile,
+      isDuplicateProgram,
+      duplicateApplication: duplicateApp
+        ? {
+            applicationNumber: duplicateApp.applicationNumber,
+            programName: duplicateApp.programName,
+            bankName: duplicateApp.bankName,
+            overallStatus: duplicateApp.overallStatus,
+          }
         : null,
-      existingCandidateMobile: existingMobile
-        ? { id: existingMobile._id, name: existingMobile.fullName, mobile: existingMobile.mobileNumber }
-        : null,
+      existingCandidate: existingCandidate
+        ? {
+            id: existingCandidate._id,
+            name: existingCandidate.fullName,
+            email: existingCandidate.email,
+            mobile: existingCandidate.mobileNumber,
+            state: existingCandidate.state,
+            stateCode: existingCandidate.stateCode,
+            district: existingCandidate.district,
+            city: existingCandidate.city,
+          }
+        : existingApplications.length > 0
+          ? {
+              id: existingApplications[0].candidateId,
+              name: existingApplications[0].candidateName,
+              email: existingApplications[0].candidateEmail,
+              mobile: existingApplications[0].candidateMobile,
+            }
+          : null,
+      existingApplications: existingApplications.map((app) => ({
+        applicationNumber: app.applicationNumber,
+        bankName: app.bankName,
+        programName: app.programName,
+        programId: app.programId,
+        status: app.overallStatus,
+      })),
     });
   } catch (error) {
     sendError(res, 'Failed to check duplicates.', 500);
@@ -77,74 +147,59 @@ export const registerCandidateAndApplication = async (req: Request, res: Respons
     const cleanEmail = email.trim().toLowerCase();
     const cleanMobile = mobileNumber.trim();
 
-    let candidate: any;
+    let candidate: any = null;
 
     if (existingCandidateId) {
-      // Adding a new application to an existing candidate
       candidate = await Candidate.findById(existingCandidateId).session(session);
-      if (!candidate) {
-        await session.abortTransaction();
-        sendError(res, 'Existing candidate not found.', 404);
-        return;
-      }
-
-      // Check if duplicate application already exists for this bank & program
-      const existingApp = await Application.findOne({
-        candidateId: candidate._id,
-        bankId,
-        programId,
+    }
+    if (!candidate) {
+      candidate = await Candidate.findOne({
+        $or: [{ email: cleanEmail }, { mobileNumber: cleanMobile }],
       }).session(session);
+    }
 
-      if (existingApp) {
-        await session.abortTransaction();
-        sendError(
-          res,
-          `Duplicate lead prohibited: Candidate '${candidate.fullName}' already has an active application (${existingApp.applicationNumber}) for this Bank and Program.`,
-          409
-        );
-        return;
-      }
+    // 1. Strict Duplicate Check: Same Candidate cannot have duplicate lead for the same Bank & Program across the entire CRM!
+    const appOrConditions: any[] = [
+      { candidateMobile: cleanMobile, programId },
+      { candidateEmail: cleanEmail, programId },
+    ];
+    if (candidate) {
+      appOrConditions.push({ candidateId: candidate._id, programId });
+    }
 
-      // Update location if provided
+    const existingApp = await Application.findOne({
+      $or: appOrConditions,
+    }).session(session);
+
+    if (existingApp) {
+      await session.abortTransaction();
+      sendError(
+        res,
+        `Duplicate lead prohibited: Candidate '${existingApp.candidateName || fullName}' already has an active application (${existingApp.applicationNumber}) for this Bank and Program (${existingApp.programName || ''}). Same candidate cannot be registered for the same program twice.`,
+        409
+      );
+      return;
+    }
+
+    if (candidate) {
+      // Reusing existing candidate profile for a DIFFERENT program
+      candidate.totalApplicationsCount = (candidate.totalApplicationsCount || 1) + 1;
       if (state) candidate.state = state.trim();
       if (stateCode) candidate.stateCode = stateCode.trim();
       if (district || city) {
         candidate.district = (district || city).trim();
         candidate.city = (district || city).trim();
       }
+      if (dateOfBirth && !candidate.dateOfBirth) {
+        candidate.dateOfBirth = new Date(dateOfBirth);
+      }
+      if ((req as any).file) {
+        candidate.resumeUrl = (req as any).file.path;
+        candidate.resumeOriginalName = (req as any).file.originalname;
+        candidate.resumeMimeType = (req as any).file.mimetype;
+      }
       await candidate.save({ session });
     } else {
-      // STRICT: Do not allow duplicate leads in Candidate or Application collections
-      const dup = await Candidate.findOne({
-        $or: [{ email: cleanEmail }, { mobileNumber: cleanMobile }],
-      }).session(session);
-
-      if (dup) {
-        await session.abortTransaction();
-        const fieldName = dup.mobileNumber === cleanMobile ? `mobile number (${cleanMobile})` : `email (${cleanEmail})`;
-        sendError(
-          res,
-          `Duplicate lead prohibited: A candidate lead already exists with this ${fieldName} (Name: ${dup.fullName}). Duplicate leads cannot be registered.`,
-          409
-        );
-        return;
-      }
-
-      const dupApp = await Application.findOne({
-        $or: [{ candidateMobile: cleanMobile }, { candidateEmail: cleanEmail }],
-      }).session(session);
-
-      if (dupApp) {
-        await session.abortTransaction();
-        const fieldName = dupApp.candidateMobile === cleanMobile ? `mobile number (${cleanMobile})` : `email (${cleanEmail})`;
-        sendError(
-          res,
-          `Duplicate lead prohibited: An application (${dupApp.applicationNumber}) already exists with this ${fieldName} for ${dupApp.candidateName}. Duplicate leads cannot be registered.`,
-          409
-        );
-        return;
-      }
-
       // Create new candidate profile
       const [newCandidate] = await Candidate.create(
         [
@@ -779,7 +834,7 @@ export const updateCandidateAndApplicationDetails = async (req: Request, res: Re
       }
     }
 
-    // Check if new mobile or email duplicates another candidate
+    // Check if new mobile or email duplicates another candidate in the same program
     if (mobileNumber || email) {
       const orConditions: any[] = [];
       if (mobileNumber) orConditions.push({ mobileNumber: mobileNumber.trim() });
@@ -791,16 +846,41 @@ export const updateCandidateAndApplicationDetails = async (req: Request, res: Re
       });
 
       if (dupCand) {
+        const targetProg = programId || application.programId;
+        const dupApp = await Application.findOne({
+          _id: { $ne: application._id },
+          candidateId: dupCand._id,
+          programId: targetProg,
+        });
+        if (dupApp) {
+          sendError(
+            res,
+            `Duplicate lead prohibited: An application (${dupApp.applicationNumber}) already exists with this ${dupCand.mobileNumber === mobileNumber?.trim() ? 'mobile number' : 'email'} for program '${dupApp.programName}'. Duplicate leads for the same bank and program are not allowed.`,
+            409
+          );
+          return;
+        }
+      }
+    }
+
+    const prevName = application.candidateName;
+
+    // Check if candidate already has an application for the newly selected program
+    if (programId && String(application.programId) !== String(programId)) {
+      const existingAppForProgram = await Application.findOne({
+        _id: { $ne: application._id },
+        candidateId: application.candidateId,
+        programId: programId,
+      });
+      if (existingAppForProgram) {
         sendError(
           res,
-          `Duplicate lead prohibited: Another candidate profile already exists with this ${dupCand.mobileNumber === mobileNumber?.trim() ? 'mobile number' : 'email'} (Name: ${dupCand.fullName}).`,
+          `Duplicate lead prohibited: Candidate already has an application (${existingAppForProgram.applicationNumber}) for this program. Same candidate cannot be registered for the same program twice.`,
           409
         );
         return;
       }
     }
-
-    const prevName = application.candidateName;
 
     // Update Bank
     if (bankId && String(application.bankId) !== String(bankId)) {
@@ -2170,8 +2250,8 @@ export const importCandidatesExcel = async (req: Request, res: Response): Promis
 
     const errors: Array<{ row: number; candidate: string; error: string }> = [];
     const createdApplications: any[] = [];
-    const seenMobiles = new Set<string>();
-    const seenEmails = new Set<string>();
+    const seenProgramMobiles = new Set<string>();
+    const seenProgramEmails = new Set<string>();
 
     let totalRows = 0;
 
@@ -2220,29 +2300,6 @@ export const importCandidatesExcel = async (req: Request, res: Response): Promis
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!email || !emailRegex.test(email)) {
         errors.push({ row: rowNumber, candidate: fullName, error: `Invalid email address '${values[3]}'.` });
-        continue;
-      }
-
-      // Check duplicate within the uploaded sheet
-      if (seenMobiles.has(mobileNumber)) {
-        errors.push({ row: rowNumber, candidate: fullName, error: `Duplicate mobile number '${mobileNumber}' within the same Excel sheet.` });
-        continue;
-      }
-      if (seenEmails.has(email)) {
-        errors.push({ row: rowNumber, candidate: fullName, error: `Duplicate email '${email}' within the same Excel sheet.` });
-        continue;
-      }
-
-      // Check duplicate against existing database
-      const existingCandidate = await Candidate.findOne({
-        $or: [{ mobileNumber }, { email }],
-      });
-      if (existingCandidate) {
-        errors.push({
-          row: rowNumber,
-          candidate: fullName,
-          error: `Candidate already registered in system with this ${existingCandidate.mobileNumber === mobileNumber ? 'mobile number' : 'email'} (${existingCandidate.fullName}).`,
-        });
         continue;
       }
 
@@ -2300,6 +2357,34 @@ export const importCandidatesExcel = async (req: Request, res: Response): Promis
         continue;
       }
 
+      // Strict duplicate check: Same candidate cannot have duplicate lead for the same Program in sheet or CRM
+      const progMobileKey = `${mobileNumber}_${resolvedProgram._id}`;
+      const progEmailKey = `${email}_${resolvedProgram._id}`;
+
+      if (seenProgramMobiles.has(progMobileKey)) {
+        errors.push({ row: rowNumber, candidate: fullName, error: `Duplicate mobile number '${mobileNumber}' for program '${resolvedProgram.name}' within the same Excel sheet.` });
+        continue;
+      }
+      if (seenProgramEmails.has(progEmailKey)) {
+        errors.push({ row: rowNumber, candidate: fullName, error: `Duplicate email '${email}' for program '${resolvedProgram.name}' within the same Excel sheet.` });
+        continue;
+      }
+
+      const existingApp = await Application.findOne({
+        $or: [
+          { candidateMobile: mobileNumber, programId: resolvedProgram._id },
+          { candidateEmail: email, programId: resolvedProgram._id },
+        ],
+      });
+      if (existingApp) {
+        errors.push({
+          row: rowNumber,
+          candidate: fullName,
+          error: `Duplicate lead prohibited: Candidate already registered for program '${existingApp.programName || resolvedProgram.name}' (${existingApp.applicationNumber}). Same candidate cannot be registered for the same program twice.`,
+        });
+        continue;
+      }
+
       // 4. Resolve Vendor (optional)
       let resolvedVendor: any = null;
       if (vendorNameInput) {
@@ -2340,16 +2425,32 @@ export const importCandidatesExcel = async (req: Request, res: Response): Promis
       const cleanBatch = isCrack ? undefined : (batchNumber ? batchNumber.trim() : undefined);
 
       try {
-        // Create Candidate
-        const candidate = await Candidate.create({
-          fullName,
-          email,
-          mobileNumber,
-          dateOfBirth: parsedDob,
-          state: state || undefined,
-          district: district || undefined,
-          city: district || undefined,
+        // Find existing candidate profile or create new
+        let candidate = await Candidate.findOne({
+          $or: [{ mobileNumber }, { email }],
         });
+
+        if (candidate) {
+          candidate.totalApplicationsCount = (candidate.totalApplicationsCount || 1) + 1;
+          if (state && !candidate.state) candidate.state = state;
+          if (district && !candidate.district) {
+            candidate.district = district;
+            candidate.city = district;
+          }
+          if (parsedDob && !candidate.dateOfBirth) candidate.dateOfBirth = parsedDob;
+          await candidate.save();
+        } else {
+          candidate = await Candidate.create({
+            fullName,
+            email,
+            mobileNumber,
+            dateOfBirth: parsedDob,
+            state: state || undefined,
+            district: district || undefined,
+            city: district || undefined,
+            totalApplicationsCount: 1,
+          });
+        }
 
         // Build initial interview rounds from program configuration
         const sortedRounds = [...(resolvedProgram.interviewRoundsConfig || [])].sort((a, b) => a.order - b.order);
@@ -2446,8 +2547,8 @@ export const importCandidatesExcel = async (req: Request, res: Response): Promis
           });
         }
 
-        seenMobiles.add(mobileNumber);
-        seenEmails.add(email);
+        seenProgramMobiles.add(progMobileKey);
+        seenProgramEmails.add(progEmailKey);
         createdApplications.push(application.applicationNumber);
       } catch (rowErr: any) {
         console.error(`Error importing candidate on row ${rowNumber}:`, rowErr);

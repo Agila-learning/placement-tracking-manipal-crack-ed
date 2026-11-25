@@ -13,6 +13,36 @@ interface Props {
   onSuccess: () => void;
 }
 
+interface IDupCheckResult {
+  candidateExists?: boolean;
+  emailExists?: boolean;
+  mobileExists?: boolean;
+  isDuplicateProgram?: boolean;
+  duplicateApplication?: {
+    applicationNumber: string;
+    programName?: string;
+    bankName?: string;
+    overallStatus?: string;
+  } | null;
+  existingCandidate?: {
+    id: string;
+    name: string;
+    email: string;
+    mobile: string;
+    state?: string;
+    stateCode?: string;
+    district?: string;
+    city?: string;
+  } | null;
+  existingApplications?: Array<{
+    applicationNumber: string;
+    bankName?: string;
+    programName?: string;
+    programId?: string;
+    status?: string;
+  }>;
+}
+
 export const RegisterCandidateModal: React.FC<Props> = ({ isOpen, onClose, onSuccess }) => {
   const toast = useToast();
   const { user } = useAuth();
@@ -23,12 +53,7 @@ export const RegisterCandidateModal: React.FC<Props> = ({ isOpen, onClose, onSuc
   const [hrList, setHrList] = useState<User[]>([]);
   const [filteredPrograms, setFilteredPrograms] = useState<Program[]>([]);
 
-  const [dupCheck, setDupCheck] = useState<{
-    emailExists: boolean;
-    mobileExists: boolean;
-    existingCandidateEmail?: { id: string; name: string; email: string };
-    existingCandidateMobile?: { id: string; name: string; mobile: string };
-  } | null>(null);
+  const [dupCheck, setDupCheck] = useState<IDupCheckResult | null>(null);
   const [existingCandidateId, setExistingCandidateId] = useState('');
 
   const [form, setForm] = useState({
@@ -100,12 +125,31 @@ export const RegisterCandidateModal: React.FC<Props> = ({ isOpen, onClose, onSuc
     setForm((f) => ({ ...f, programId: '' }));
   }, [form.bankId, programs, banks]);
 
-  const checkDuplicate = async () => {
+  const checkDuplicate = async (overrideProgramId?: string, overrideBankId?: string) => {
     if (!form.email && !form.mobileNumber) return;
     try {
-      const res = await applicationsApi.checkDuplicate(form.email || undefined, form.mobileNumber || undefined);
+      const pId = overrideProgramId !== undefined ? overrideProgramId : form.programId;
+      const bId = overrideBankId !== undefined ? overrideBankId : form.bankId;
+      const res = await applicationsApi.checkDuplicate(
+        form.email || undefined,
+        form.mobileNumber || undefined,
+        pId || undefined,
+        bId || undefined
+      );
       if (res.success && res.data) {
-        setDupCheck(res.data as any);
+        const data = res.data as IDupCheckResult;
+        setDupCheck(data);
+        if (data.existingCandidate) {
+          const c = data.existingCandidate;
+          setForm((f) => ({
+            ...f,
+            fullName: f.fullName || c.name || '',
+            state: f.state || c.state || '',
+            stateCode: f.stateCode || c.stateCode || '',
+            district: f.district || c.district || c.city || '',
+            city: f.city || c.city || c.district || '',
+          }));
+        }
       }
     } catch {}
   };
@@ -131,8 +175,11 @@ export const RegisterCandidateModal: React.FC<Props> = ({ isOpen, onClose, onSuc
       }
       return next;
     });
-    if (field === 'email' || field === 'mobileNumber') {
-      setDupCheck(null);
+
+    if (field === 'programId' && (form.email || form.mobileNumber)) {
+      checkDuplicate(value, form.bankId);
+    } else if (field === 'bankId' && (form.email || form.mobileNumber)) {
+      checkDuplicate(form.programId, value);
     }
   };
 
@@ -143,8 +190,10 @@ export const RegisterCandidateModal: React.FC<Props> = ({ isOpen, onClose, onSuc
       return;
     }
 
-    if (dupCheck && (dupCheck.emailExists || dupCheck.mobileExists)) {
-      toast.error('Duplicate lead prohibited: Candidate with this mobile or email already exists.');
+    if (dupCheck && dupCheck.isDuplicateProgram) {
+      toast.error(
+        `Duplicate lead prohibited: Candidate already has an active application (${dupCheck.duplicateApplication?.applicationNumber || ''}) for ${dupCheck.duplicateApplication?.programName || 'this program'}. Same candidate cannot be registered for the same program twice.`
+      );
       return;
     }
 
@@ -173,7 +222,8 @@ export const RegisterCandidateModal: React.FC<Props> = ({ isOpen, onClose, onSuc
       fd.append('paymentRoute', form.paymentRoute);
       if (form.processType) fd.append('processType', form.processType);
       if (form.registrationDate) fd.append('registrationDate', form.registrationDate);
-      if (existingCandidateId) fd.append('existingCandidateId', existingCandidateId);
+      const candIdToUse = existingCandidateId || dupCheck?.existingCandidate?.id;
+      if (candIdToUse) fd.append('existingCandidateId', candIdToUse);
       if (form.resume) fd.append('resume', form.resume);
 
       await applicationsApi.register(fd);
@@ -219,10 +269,10 @@ export const RegisterCandidateModal: React.FC<Props> = ({ isOpen, onClose, onSuc
               onChange={(e) => handleChange('fullName', e.target.value)} required />
             <Input label="Mobile Number *" placeholder="10-digit mobile" value={form.mobileNumber}
               onChange={(e) => handleChange('mobileNumber', e.target.value)}
-              onBlur={checkDuplicate} required />
+              onBlur={() => checkDuplicate()} required />
             <Input label="Email Address *" type="email" placeholder="candidate@email.com" value={form.email}
               onChange={(e) => handleChange('email', e.target.value)}
-              onBlur={checkDuplicate} required />
+              onBlur={() => checkDuplicate()} required />
             <Input label="Date of Birth" type="date" value={form.dateOfBirth}
               onChange={(e) => handleChange('dateOfBirth', e.target.value)} />
             <IndiaLocationSelector
@@ -238,22 +288,50 @@ export const RegisterCandidateModal: React.FC<Props> = ({ isOpen, onClose, onSuc
           </div>
         </div>
 
-        {/* Duplicate Prohibition Alert */}
-        {dupCheck && (dupCheck.emailExists || dupCheck.mobileExists) && (
+        {/* Duplicate Program Error (Strictly Prohibited for same Bank & Program) */}
+        {dupCheck?.isDuplicateProgram && (
           <div className="bg-red-50 border-2 border-red-300 rounded-xl p-3.5 flex items-start gap-3 shadow-xs">
             <div className="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0 mt-0.5">
               <AlertTriangle className="w-5 h-5 text-red-600" />
             </div>
             <div className="flex-1">
               <p className="text-sm text-red-900 font-bold flex items-center gap-1.5">
-                <span>🚫 Duplicate Lead Not Allowed</span>
+                <span>🚫 Duplicate Lead Not Allowed For Same Program</span>
               </p>
               <p className="text-xs text-red-700 mt-1 leading-relaxed">
-                A candidate lead with this <strong>{dupCheck.mobileExists ? 'Mobile Number' : 'Email Address'}</strong> already exists in the system. Duplicate leads are strictly prohibited in Forge India Connect.
+                Candidate <strong>{dupCheck.existingCandidate?.name || form.fullName}</strong> is already registered for <strong>{dupCheck.duplicateApplication?.programName || selectedProgram?.name}</strong> (Application #{dupCheck.duplicateApplication?.applicationNumber}). Duplicate leads for the same bank and program are strictly prohibited around the entire CRM.
               </p>
-              <div className="mt-2 text-xs font-semibold text-red-800 bg-red-100/70 px-2.5 py-1.5 rounded-lg border border-red-200 inline-block">
-                Existing record: {dupCheck.existingCandidateMobile?.name || dupCheck.existingCandidateEmail?.name || 'Registered Candidate'}
-              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Existing Candidate Multi-Program Information (Allowed!) */}
+        {dupCheck?.candidateExists && !dupCheck?.isDuplicateProgram && (
+          <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-3.5 flex items-start gap-3 shadow-xs">
+            <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <CheckCircle className="w-5 h-5 text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm text-blue-900 font-bold flex items-center gap-1.5">
+                <span>Existing Candidate Recognized – Allowed For New Program</span>
+              </p>
+              <p className="text-xs text-blue-700 mt-1 leading-relaxed">
+                Profile found for <strong>{dupCheck.existingCandidate?.name}</strong> ({dupCheck.existingCandidate?.mobile || dupCheck.existingCandidate?.email}).
+                The candidate is permitted to be enrolled into this distinct program.
+              </p>
+              {dupCheck.existingApplications && dupCheck.existingApplications.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  <span className="text-[11px] text-blue-600 font-medium self-center">Existing program(s):</span>
+                  {dupCheck.existingApplications.map((app: any) => (
+                    <span
+                      key={app.applicationNumber}
+                      className="text-[11px] font-semibold text-blue-800 bg-blue-100/80 px-2 py-0.5 rounded border border-blue-200"
+                    >
+                      {app.programName} ({app.applicationNumber})
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -403,9 +481,11 @@ export const RegisterCandidateModal: React.FC<Props> = ({ isOpen, onClose, onSuc
             type="submit"
             className="flex-1"
             isLoading={isLoading}
-            disabled={isLoading || !!(dupCheck && (dupCheck.emailExists || dupCheck.mobileExists))}
+            disabled={isLoading || Boolean(dupCheck?.isDuplicateProgram)}
           >
-            Register Candidate
+            {dupCheck?.candidateExists && !dupCheck?.isDuplicateProgram
+              ? 'Register Application (New Program)'
+              : 'Register Candidate'}
           </Button>
         </div>
       </form>

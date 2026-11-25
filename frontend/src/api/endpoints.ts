@@ -55,8 +55,14 @@ export const vendorsApi = {
 // Applications
 export const applicationsApi = {
   dashboard: () => api.get<DashboardStats>('/applications/dashboard/stats'),
-  checkDuplicate: (email?: string, mobile?: string) =>
-    api.get(`/applications/check-duplicate?${email ? `email=${email}` : ''}${mobile ? `&mobile=${mobile}` : ''}`),
+  checkDuplicate: (email?: string, mobile?: string, programId?: string, bankId?: string) => {
+    const params = new URLSearchParams();
+    if (email) params.append('email', email);
+    if (mobile) params.append('mobile', mobile);
+    if (programId) params.append('programId', programId);
+    if (bankId) params.append('bankId', bankId);
+    return api.get(`/applications/check-duplicate?${params.toString()}`);
+  },
   list: (params?: Record<string, string>) =>
     api.get<Application[]>(`/applications?${new URLSearchParams(params || {}).toString()}`),
   get: (id: string) => api.get<Application>(`/applications/${id}`),
